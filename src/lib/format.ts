@@ -17,6 +17,44 @@ export function formatLocalTime(isoUtc: string | null, timeZone: string): string
   }).format(date);
 }
 
+/** Hour of a UTC instant in the city's zone, e.g. "14:00 EST". The zone name disambiguates repeated hours. */
+export function formatHour(isoUtc: string | null, timeZone: string): string {
+  if (!isoUtc) return UNAVAILABLE;
+  const date = new Date(isoUtc);
+  if (Number.isNaN(date.getTime())) return UNAVAILABLE;
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZoneName: 'short',
+  }).format(date);
+}
+
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Formats a local calendar date (YYYY-MM-DD), e.g. "Fri, Jan 15".
+ * The date is already local to the city, so it is formatted at UTC noon in UTC to avoid any shift.
+ */
+export function formatDay(date: string | null): string {
+  const match = date ? ISO_DATE.exec(date) : null;
+  if (!match) return UNAVAILABLE;
+  const instant = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12);
+  if (Number.isNaN(instant)) return UNAVAILABLE;
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'UTC',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  }).format(instant);
+}
+
+export function formatPercent(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return UNAVAILABLE;
+  return `${Math.round(value)}%`;
+}
+
 export function formatTemperature(celsius: number | null): string {
   if (celsius === null || !Number.isFinite(celsius)) return UNAVAILABLE;
   const rounded = Math.round(celsius);

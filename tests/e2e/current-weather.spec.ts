@@ -1,12 +1,15 @@
 import { expect, test } from '@playwright/test';
+import { makeForecast } from './fixtures';
 
 // Synthetic forecast; CI never calls Open-Meteo.
-const forecast = {
+const forecast = makeForecast({
   cityId: 'laval-qc',
   timezone: 'America/Toronto',
   fetchedAt: '2027-01-15T19:16:00Z',
+  firstHour: '2027-01-15T19:00:00Z',
+  firstDate: '2027-01-15',
   current: { time: '2027-01-15T19:15:00Z', temperatureC: -7.6, windKmh: 21.4, weatherCode: 3 },
-};
+});
 
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(new Date('2027-01-15T19:20:00Z'));

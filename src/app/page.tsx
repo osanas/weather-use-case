@@ -1,20 +1,18 @@
-import { CurrentWeather } from '@/components/CurrentWeather';
-import { cityDisplayName, getCityById } from '@/lib/cities';
+import { WeatherApp } from '@/components/WeatherApp';
+import { CITIES, getCityById } from '@/lib/cities';
 
 const DEFAULT_CITY_ID = 'laval-qc';
 
 export default function HomePage() {
-  const city = getCityById(DEFAULT_CITY_ID);
-  if (!city) throw new Error('Default city missing from catalogue');
-  const cityName = cityDisplayName(city);
+  if (!getCityById(DEFAULT_CITY_ID)) throw new Error('Default city missing from catalogue');
 
   return (
     <main>
       <header>
         <h1>Weather Window</h1>
-        <p>{cityName}</p>
+        <p>Current conditions, hourly and five-day forecasts for Canadian cities.</p>
       </header>
-      <CurrentWeather cityId={city.id} cityName={cityName} />
+      <WeatherApp cities={CITIES} defaultCityId={DEFAULT_CITY_ID} />
       <footer>
         <p>
           Weather data by{' '}

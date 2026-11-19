@@ -1,15 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createForecastCache, FORECAST_TTL_MS } from './cache';
-import type { WeatherResponse } from './types';
+import { syntheticForecast } from './test-fixtures';
 
-function forecast(cityId: string): WeatherResponse {
-  return {
-    cityId,
-    timezone: 'America/Toronto',
-    fetchedAt: '2027-06-14T12:00:00.000Z',
-    current: { time: '2027-06-14T12:00:00.000Z', temperatureC: 18, windKmh: 15, weatherCode: 0 },
-  };
-}
+const forecast = (cityId: string) => syntheticForecast({ cityId });
 
 function fakeClock(start = 0) {
   let t = start;
@@ -21,12 +14,15 @@ describe('createForecastCache', () => {
     expect(FORECAST_TTL_MS).toBe(300_000);
   });
 
-  it('returns a stored forecast before it expires', () => {
+  it('returns the whole stored forecast, including hourly and daily data, before it expires', () => {
     const clock = fakeClock();
     const cache = createForecastCache({ now: clock.now });
     cache.set('laval-qc', forecast('laval-qc'));
     clock.advance(FORECAST_TTL_MS - 1);
-    expect(cache.get('laval-qc')).toEqual(forecast('laval-qc'));
+    const hit = cache.get('laval-qc');
+    expect(hit).toEqual(forecast('laval-qc'));
+    expect(hit?.hourly).toHaveLength(2);
+    expect(hit?.daily).toHaveLength(2);
   });
 
   it('treats an entry as a miss at exactly the TTL', () => {

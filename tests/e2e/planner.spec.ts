@@ -12,7 +12,9 @@ const forecast = {
   daily: [{ date: '2027-06-14', minC: 12, maxC: 20, weatherCode: 0 }],
 };
 
-// TODO(<planner-ticket-id>): re-enable when the planner UI and /api/plan land.
+// TODO(WEA-8): re-enable in the WEA-8 PR once the planning form exists (Activity, Date, Duration,
+// threshold inputs, "Find best time" button and the "Planning result" region). WEA-6 supplies
+// the City combobox; /api/plan is intercepted, so only the form is missing.
 for (const mode of ['agent', 'rule-based'] as const) {
   test.fixme(`shows the planned window in ${mode} mode`, async ({ page }) => {
     await page.clock.setFixedTime(new Date('2027-06-14T12:00:00Z'));
