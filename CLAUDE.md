@@ -30,3 +30,7 @@ npm run build
 ```
 
 Use fixed clocks and fixtures for planner tests. Cover time zones, boundary values, missing data, invalid tool calls and supplier failures in the affected modules. CI tests should run without live provider keys. Link relevant evidence to the acceptance criterion in the PR.
+
+## Linear, pull requests and browser tests
+
+Use the issue ID in the branch and PR title. Include the acceptance criterion, preview and test evidence in the PR template. Follow [the team workflow](docs/team-workflow.md) for the Playwright contract. Run npm run build followed by npm run test:e2e for UI changes. Use synthetic data in issues, reviews, CI and test artifacts.

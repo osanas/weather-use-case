@@ -60,3 +60,7 @@ References
 For a failing model, set `AI_ENABLED=false` and redeploy so weather and the rule-based planner remain available. For a breaking app deploy, restore the last known-good eligible production deployment through Vercel or revert the offending change on `main` and redeploy. Check deployment age, bundled environment and credentials before restoring an old build. A revoked credential stays revoked. Retest the public URL and reconcile `main` with production.
 
 For a suspected privacy incident, contain the exposure, preserve only needed evidence with restricted access, and alert the privacy lead where applicable. Record incidents involving personal information in the required register if the law applies. If there is a risk of serious injury, notify the Commission d’accès à l’information and affected persons with diligence as required. Record the decision, communications and corrective actions in the private incident record.
+
+## Pull request environments
+
+Follow the [team workflow](team-workflow.md) to connect the repository to Linear and Vercel. Run the GitHub Actions Verify job on the PR and review its Vercel preview. CI starts the built Next.js app locally for Playwright. After merging, verify the real production deployment separately and record its SHA.
