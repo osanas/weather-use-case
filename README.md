@@ -53,3 +53,7 @@ npm run build
 ```
 
 Use fixed fixtures for CI and the live deployment for an end-to-end smoke test. See [Product specification](docs/product-spec.md) for acceptance criteria, [Deployment](docs/deployment.md) for release and incident procedures, and [Claude Code instructions](CLAUDE.md) for AI-assisted changes.
+
+## Delivery workflow
+
+Track work in Linear, link the ticket to a GitHub pull request, run the Verify check and review the Vercel preview before merging. The [team workflow](docs/team-workflow.md) contains setup instructions, the initial backlog and the Playwright contracts.

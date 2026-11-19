@@ -48,3 +48,7 @@ The Groq model requests local function calls. The server scopes both tools to th
 | Disclosure via logs or vendors | Send neither user IP nor browser headers to weather or AI providers. Avoid logging bodies, tool payloads, raw IPs, cookies, headers or secret values in application code. Review provider edge, firewall, support and log access separately. |
 
 The app has no application database or visitor identifiers. IP addresses and connection metadata may still be processed by the host or security layer. Treat any metadata that can identify a person as potentially personal. The proposal is privacy-by-design. Applicability and obligations depend on the actual operator and deployment. Follow the [deployment privacy review](deployment.md#privacy-review-before-public-release).
+
+## Browser acceptance evidence
+
+Playwright covers the Laval planning journey with fixed inputs in both AI-assisted and rule-based modes. The server integration tests cover the actual fallback decision. Link both sets of results to the acceptance criterion in the pull request. See the [browser-test contract](team-workflow.md#browser-test-contract).
