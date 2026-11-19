@@ -12,8 +12,9 @@ const forecast = {
   daily: [{ date: '2027-06-14', minC: 12, maxC: 20, weatherCode: 0 }],
 };
 
+// TODO(<planner-ticket-id>): re-enable when the planner UI and /api/plan land.
 for (const mode of ['agent', 'rule-based'] as const) {
-  test(`shows the planned window in ${mode} mode`, async ({ page }) => {
+  test.fixme(`shows the planned window in ${mode} mode`, async ({ page }) => {
     await page.clock.setFixedTime(new Date('2027-06-14T12:00:00Z'));
     await page.route('**/api/weather?*', route => route.fulfill({ json: forecast }));
     await page.route('**/api/plan', route => route.fulfill({ json: {
