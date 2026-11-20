@@ -6,8 +6,8 @@ Fill in the table below after the production checks in [Deployment](docs/deploym
 
 | Release information | Value |
 |---|---|
-| Public app | _Fill in after the production smoke test._ |
-| Source repository | _Fill in before submission._ |
+| Public app | https://weather-use-case-rho.vercel.app |
+| Source repository | https://github.com/osanas/weather-use-case |
 | Deployed commit | _Fill in with the tested commit SHA._ |
 
 This document describes the target implementation for the hiring exercise. The local commands below are the planned repository interface and must be checked against the implementation before submission.
