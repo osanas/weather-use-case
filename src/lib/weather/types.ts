@@ -41,6 +41,24 @@ export type WeatherResponse = {
   daily: DailySummary[];
 };
 
+/**
+ * One local calendar day as the provider resolved it from the city's IANA zone.
+ * `startsAt` and `endsAt` are the provider's consecutive local-midnight instants
+ * (ISO 8601 UTC), so a day lasts 23, 24 or 25 hours across DST changes. The server
+ * uses these instead of its own time-zone data, which can lag the provider's.
+ */
+export type LocalDay = {
+  date: string;
+  startsAt: string;
+  endsAt: string;
+};
+
+/**
+ * Server-side forecast: the public response plus local-day boundaries for the planner.
+ * `localDays` is stripped before the forecast is sent to the browser.
+ */
+export type ProviderForecast = WeatherResponse & { localDays: LocalDay[] };
+
 export type WeatherErrorBody = {
   error: 'invalid_city' | 'weather_unavailable';
   message: string;

@@ -1,11 +1,17 @@
 import { z } from 'zod';
 import type { City } from '@/lib/cities';
-import type { WeatherResponse } from './types';
+import type { LocalDay, ProviderForecast } from './types';
 
 /** Fixed provider endpoint. Never built from client input. */
 export const OPEN_METEO_FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 export const PROVIDER_TIMEOUT_MS = 5_000;
+/** Public forecast horizon in local days, including today. */
 export const FORECAST_DAYS = 7;
+/**
+ * Days requested from the provider. The extra day is never shown; its local midnight
+ * is the exact end of the last public day, even when that day has a DST change.
+ */
+export const PROVIDER_FORECAST_DAYS = FORECAST_DAYS + 1;
 const MAX_POINTS = 200;
 
 export type ProviderOutcome = 'timeout' | 'network' | 'http_error' | 'invalid_response';
@@ -69,7 +75,7 @@ export function buildForecastUrl(city: City): URL {
     current: 'temperature_2m,wind_speed_10m,weather_code',
     hourly: 'temperature_2m,precipitation_probability,wind_speed_10m,weather_code',
     daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
-    forecast_days: String(FORECAST_DAYS),
+    forecast_days: String(PROVIDER_FORECAST_DAYS),
     temperature_unit: 'celsius',
     wind_speed_unit: 'kmh',
     timeformat: 'unixtime',
@@ -102,13 +108,36 @@ export function localDateFromMidnight(epochSeconds: number, utcOffsetSeconds: nu
 }
 
 /**
+ * Builds local-day boundaries from the provider's consecutive local-midnight instants.
+ * A day is listed only when the next midnight is known, so its length (23, 24 or 25 h,
+ * or any other offset change) always comes from the provider's IANA rules.
+ */
+export function localDaysFromMidnights(
+  midnights: readonly number[],
+  utcOffsetSeconds: number,
+  maxDays = FORECAST_DAYS,
+): LocalDay[] {
+  const days: LocalDay[] = [];
+  for (let i = 0; i + 1 < midnights.length && days.length < maxDays; i++) {
+    const start = midnights[i]!;
+    days.push({
+      date: localDateFromMidnight(start, utcOffsetSeconds),
+      startsAt: toIso(start),
+      endsAt: toIso(midnights[i + 1]!),
+    });
+  }
+  return days;
+}
+
+/**
  * Fetches current, hourly and daily forecasts for a catalogue city. Sends only public
  * coordinates and the catalogue time zone; no client headers, IPs or identifiers.
+ * The public part keeps a {@link FORECAST_DAYS}-day horizon; `localDays` is server-only.
  */
 export async function fetchForecast(
   city: City,
   { fetchImpl = fetch, now = Date.now, timeoutMs = PROVIDER_TIMEOUT_MS }: FetchForecastOptions = {},
-): Promise<WeatherResponse> {
+): Promise<ProviderForecast> {
   let response: Response;
   try {
     response = await fetchImpl(buildForecastUrl(city), {
@@ -135,6 +164,11 @@ export async function fetchForecast(
   if (!parsed.success) throw new ProviderError('invalid_response');
 
   const { current, hourly, daily, utc_offset_seconds: offset } = parsed.data;
+  // Instant at which the public horizon ends: the local midnight after its last day.
+  const horizonEnd = daily.time[FORECAST_DAYS];
+  const hourIndexes = hourly.time
+    .map((t, i) => (horizonEnd === undefined || t < horizonEnd ? i : -1))
+    .filter(i => i >= 0);
   return {
     cityId: city.id,
     timezone: city.timeZone,
@@ -145,19 +179,20 @@ export async function fetchForecast(
       windKmh: current.wind_speed_10m ?? null,
       weatherCode: current.weather_code ?? null,
     },
-    hourly: hourly.time.map((t, i) => ({
-      time: toIso(t),
+    hourly: hourIndexes.map(i => ({
+      time: toIso(hourly.time[i]!),
       temperatureC: hourly.temperature_2m[i] ?? null,
       precipitationProbability: hourly.precipitation_probability[i] ?? null,
       windKmh: hourly.wind_speed_10m[i] ?? null,
       weatherCode: hourly.weather_code[i] ?? null,
     })),
-    daily: daily.time.map((t, i) => ({
+    daily: daily.time.slice(0, FORECAST_DAYS).map((t, i) => ({
       date: localDateFromMidnight(t, offset),
       minC: daily.temperature_2m_min[i] ?? null,
       maxC: daily.temperature_2m_max[i] ?? null,
       precipitationProbability: daily.precipitation_probability_max[i] ?? null,
       weatherCode: daily.weather_code[i] ?? null,
     })),
+    localDays: localDaysFromMidnights(daily.time, offset),
   };
 }

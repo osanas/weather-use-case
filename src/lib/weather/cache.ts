@@ -1,10 +1,10 @@
-import type { WeatherResponse } from './types';
+import type { ProviderForecast } from './types';
 
 export const FORECAST_TTL_MS = 5 * 60 * 1000;
 
 export type ForecastCache = {
-  get(cityId: string): WeatherResponse | undefined;
-  set(cityId: string, forecast: WeatherResponse): void;
+  get(cityId: string): ProviderForecast | undefined;
+  set(cityId: string, forecast: ProviderForecast): void;
 };
 
 /**
@@ -16,7 +16,7 @@ export function createForecastCache({
   ttlMs = FORECAST_TTL_MS,
   now = Date.now,
 }: { ttlMs?: number; now?: () => number } = {}): ForecastCache {
-  const entries = new Map<string, { forecast: WeatherResponse; expiresAt: number }>();
+  const entries = new Map<string, { forecast: ProviderForecast; expiresAt: number }>();
   return {
     get(cityId) {
       const entry = entries.get(cityId);
