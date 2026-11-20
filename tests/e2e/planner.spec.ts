@@ -26,14 +26,12 @@ for (const mode of ['agent', 'rule-based'] as const) {
     await page.getByLabel('Activity', { exact: true }).selectOption('hiking');
     await page.getByLabel('Date', { exact: true }).fill('2027-06-14');
     await page.getByLabel('Duration (hours)', { exact: true }).fill('2');
-    await page.getByLabel('Maximum precipitation (%)', { exact: true }).fill('30');
-    await page.getByLabel('Maximum wind (km/h)', { exact: true }).fill('25');
     const request = page.waitForRequest(req =>
       new URL(req.url()).pathname === '/api/plan' && req.method() === 'POST');
     await page.getByRole('button', { name: 'Find best time' }).click();
-    expect((await request).postDataJSON()).toMatchObject({
-      cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14',
-      durationHours: 2, maxPrecipitationProbability: 30, maxWindKmh: 25,
+    // Thresholds are fixed comfort limits applied by the server, never sent by the browser.
+    expect((await request).postDataJSON()).toEqual({
+      cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', durationHours: 2,
     });
     const result = page.getByRole('region', { name: 'Planning result' });
     await expect(result).toContainText(/11:00/);

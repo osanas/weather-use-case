@@ -41,19 +41,20 @@ export function toPlanResponse(body: unknown, criteria: PlanCriteria): PlanRespo
   }
 }
 
-/** Sends only the validated structured criteria to the same-origin planning API. */
+/** Sends only the validated structured request fields to the same-origin planning API. */
 export async function submitPlan(
   criteria: PlanCriteria,
   signal?: AbortSignal,
   fetchImpl: typeof fetch = fetch,
 ): Promise<SubmitPlanResult> {
-  const { cityId, activity, date, durationHours, maxPrecipitationProbability, maxWindKmh } = criteria;
+  // Only the four request fields; the comfort maxima are applied by the server.
+  const { cityId, activity, date, durationHours } = criteria;
   try {
     const response = await fetchImpl('/api/plan', {
       method: 'POST',
       signal,
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ cityId, activity, date, durationHours, maxPrecipitationProbability, maxWindKmh }),
+      body: JSON.stringify({ cityId, activity, date, durationHours }),
     });
     const body: unknown = await response.json().catch(() => null);
     if (response.status === 400 && isObj(body)) {

@@ -14,29 +14,43 @@ export function isCalendarDate(value: string): boolean {
 }
 
 /**
- * Static shape and range checks. The forecast horizon depends on the city's current local
- * day, so it is checked by the planner against the provider's day boundaries.
- * Threshold ranges are the domain bounds only; the spec sets no tighter limits.
+ * Fixed "comfortable to go out" limits applied to every hour of a window, for every
+ * activity. Users do not choose them: the form has no threshold fields and the API rejects
+ * them. Product choice (WEA-8): at most a 20 % chance of precipitation and 20 km/h of
+ * sustained wind (a light to gentle breeze). Change them here only.
  */
-export const planCriteriaSchema = z
+export const COMFORT_LIMITS = {
+  maxPrecipitationProbability: 20,
+  maxWindKmh: 20,
+} as const satisfies Pick<PlanCriteria, 'maxPrecipitationProbability' | 'maxWindKmh'>;
+
+/**
+ * Static shape and range checks for the `POST /api/plan` body. The forecast horizon
+ * depends on the city's current local day, so the planner checks it against the
+ * provider's day boundaries.
+ */
+export const planRequestSchema = z
   .object({
     cityId: z.string().refine(id => getCityById(id) !== undefined, 'Unknown city.'),
     activity: z.enum(ACTIVITIES),
     date: z.string().refine(isCalendarDate, 'Date must be a valid YYYY-MM-DD date.'),
     durationHours: z.number().int().min(1).max(4),
-    maxPrecipitationProbability: z.number().finite().min(0).max(100),
-    maxWindKmh: z.number().finite().min(0),
   })
   .strict();
 
-export type ParseCriteriaResult =
+export type PlanRequest = z.infer<typeof planRequestSchema>;
+
+export type ParseRequestResult =
   | { ok: true; criteria: PlanCriteria }
   | { ok: false; fields: string[] };
 
-/** Validates untrusted planning input. Errors list field names only, never input values. */
-export function parsePlanCriteria(input: unknown): ParseCriteriaResult {
-  const parsed = planCriteriaSchema.safeParse(input);
-  if (parsed.success) return { ok: true, criteria: parsed.data };
+/**
+ * Validates untrusted planning input and applies {@link COMFORT_LIMITS}. Threshold fields
+ * sent by a client are unknown fields. Errors list field names only, never input values.
+ */
+export function parsePlanRequest(input: unknown): ParseRequestResult {
+  const parsed = planRequestSchema.safeParse(input);
+  if (parsed.success) return { ok: true, criteria: { ...parsed.data, ...COMFORT_LIMITS } };
   const fields = new Set<string>();
   for (const issue of parsed.error.issues) {
     if (issue.code === 'unrecognized_keys') fields.add('unknown_field');

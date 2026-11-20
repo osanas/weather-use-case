@@ -4,7 +4,7 @@ import type { PlanCriteria } from './types';
 
 const criteria: PlanCriteria = {
   cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14',
-  durationHours: 2, maxPrecipitationProbability: 30, maxWindKmh: 25,
+  durationHours: 2, maxPrecipitationProbability: 20, maxWindKmh: 20,
 };
 const match = {
   outcome: 'match', mode: 'rule-based', start: '2027-06-14T15:00:00Z', end: '2027-06-14T17:00:00Z',
@@ -48,14 +48,16 @@ describe('toPlanResponse', () => {
 });
 
 describe('submitPlan', () => {
-  it('posts only the six structured fields as JSON to the same-origin route', async () => {
+  it('posts only the four request fields as JSON, never the comfort limits', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => json(match));
     await submitPlan({ ...criteria, extra: 'x' } as PlanCriteria, undefined, fetchImpl);
     const [url, init] = fetchImpl.mock.calls[0]!;
     expect(url).toBe('/api/plan');
     expect(init?.method).toBe('POST');
     expect(init?.headers).toEqual({ 'Content-Type': 'application/json', Accept: 'application/json' });
-    expect(JSON.parse(init?.body as string)).toEqual(criteria);
+    expect(JSON.parse(init?.body as string)).toEqual({
+      cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', durationHours: 2,
+    });
   });
 
   it('returns field names from a 400 response', async () => {

@@ -1,10 +1,10 @@
 import { localDateString } from '@/lib/forecast';
 import { FORECAST_DAYS } from '@/lib/weather/open-meteo';
-import { parsePlanCriteria } from './criteria';
+import { parsePlanRequest } from './criteria';
 import { addCalendarDays } from './planner';
 import type { PlanCriteria } from './types';
 
-export const FORM_FIELDS = ['activity', 'date', 'durationHours', 'maxPrecipitationProbability', 'maxWindKmh'] as const;
+export const FORM_FIELDS = ['activity', 'date', 'durationHours'] as const;
 export type FormField = (typeof FORM_FIELDS)[number];
 
 /** Raw input values as typed in the form. */
@@ -13,7 +13,7 @@ export type PlanFormValues = Record<FormField, string>;
 export type PlanFormErrors = Partial<Record<FormField | 'cityId' | 'form', string>>;
 
 export const EMPTY_FORM: PlanFormValues = {
-  activity: '', date: '', durationHours: '', maxPrecipitationProbability: '', maxWindKmh: '',
+  activity: '', date: '', durationHours: '',
 };
 
 export type DateBounds = { min: string; max: string };
@@ -32,8 +32,6 @@ export function fieldMessage(field: string, bounds?: DateBounds): string {
       ? `Choose a date from ${bounds.min} to ${bounds.max}.`
       : 'Choose a date within the forecast period.';
     case 'durationHours': return 'Enter a whole number of hours from 1 to 4.';
-    case 'maxPrecipitationProbability': return 'Enter a precipitation probability from 0 to 100%.';
-    case 'maxWindKmh': return 'Enter a wind speed of 0 km/h or more.';
     default: return 'Check the planning criteria and try again.';
   }
 }
@@ -49,17 +47,16 @@ export type FormValidation =
 
 /**
  * Validates the form with the same schema the server uses, plus the date bounds, so the
- * browser only sends structured, valid criteria. The server still validates everything.
+ * browser only sends structured, valid fields. The resulting criteria include the fixed
+ * comfort limits for display; they are not sent. The server still validates everything.
  */
 export function validatePlanForm(values: PlanFormValues, cityId: string, bounds: DateBounds): FormValidation {
   const errors: PlanFormErrors = {};
-  const parsed = parsePlanCriteria({
+  const parsed = parsePlanRequest({
     cityId,
     activity: values.activity === '' ? undefined : values.activity,
     date: values.date === '' ? undefined : values.date,
     durationHours: toNumber(values.durationHours),
-    maxPrecipitationProbability: toNumber(values.maxPrecipitationProbability),
-    maxWindKmh: toNumber(values.maxWindKmh),
   });
   if (!parsed.ok) {
     for (const field of parsed.fields) errors[field as FormField | 'cityId'] = fieldMessage(field, bounds);

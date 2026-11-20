@@ -3,7 +3,7 @@ import type { ForecastCache } from '@/lib/weather/cache';
 import { fetchForecast, ProviderError, type ProviderOutcome } from '@/lib/weather/open-meteo';
 import { sharedForecastCache } from '@/lib/weather/handler';
 import type { ProviderForecast } from '@/lib/weather/types';
-import { parsePlanCriteria } from './criteria';
+import { parsePlanRequest } from './criteria';
 import { planActivityWindow } from './planner';
 import type { PlanErrorBody, PlanResponse } from './types';
 
@@ -102,7 +102,7 @@ export function createPlanHandler(deps: PlanHandlerDeps) {
       return reject(400, 'invalid_criteria', { error: 'invalid_criteria', message: INVALID_MESSAGE, fields: ['body'] });
     }
 
-    const parsed = parsePlanCriteria(input);
+    const parsed = parsePlanRequest(input);
     if (!parsed.ok) {
       return reject(400, 'invalid_criteria', { error: 'invalid_criteria', message: INVALID_MESSAGE, fields: parsed.fields });
     }

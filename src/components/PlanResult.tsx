@@ -93,8 +93,8 @@ function Content({ state, city, cityName, onRetry }: {
         <h3>No time meets these limits</h3>
         {mode}
         <p>
-          No {criteria.durationHours}-hour period on {day} in {cityName} stays within both limits for every
-          hour. Try another date, a shorter duration or higher limits.
+          No {criteria.durationHours}-hour period on {day} in {cityName} stays within the comfort limits for
+          every hour. Try another date or a shorter duration.
         </p>
         <Constraints criteria={criteria} />
       </>

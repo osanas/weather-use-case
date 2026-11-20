@@ -3,7 +3,10 @@ import type { ProviderForecast } from '@/lib/weather/types';
 export const ACTIVITIES = ['hiking', 'cycling', 'walking'] as const;
 export type Activity = (typeof ACTIVITIES)[number];
 
-/** Validated planning criteria. Field names match the `POST /api/plan` browser contract. */
+/**
+ * Validated planning criteria. The browser sends `cityId`, `activity`, `date` and
+ * `durationHours`; the server adds the fixed comfort maxima (`COMFORT_LIMITS`).
+ */
 export type PlanCriteria = {
   cityId: string;
   activity: Activity;
@@ -11,9 +14,9 @@ export type PlanCriteria = {
   date: string;
   /** Whole hours, 1–4. */
   durationHours: number;
-  /** Inclusive maximum precipitation probability, 0–100 %. */
+  /** Inclusive maximum precipitation probability, 0–100 %. Fixed by the server. */
   maxPrecipitationProbability: number;
-  /** Inclusive maximum sustained wind speed, km/h. */
+  /** Inclusive maximum sustained wind speed, km/h. Fixed by the server. */
   maxWindKmh: number;
 };
 

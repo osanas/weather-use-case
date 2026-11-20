@@ -34,12 +34,10 @@ async function setup(page: Page, replies: PlanReply[]) {
   return requests;
 }
 
-async function fillForm(page: Page, values: Partial<Record<'date' | 'duration' | 'precip' | 'wind', string>> = {}) {
+async function fillForm(page: Page, values: Partial<Record<'date' | 'duration', string>> = {}) {
   await page.getByLabel('Activity', { exact: true }).selectOption('hiking');
   await page.getByLabel('Date', { exact: true }).fill(values.date ?? '2027-06-14');
   await page.getByLabel('Duration (hours)', { exact: true }).fill(values.duration ?? '2');
-  await page.getByLabel('Maximum precipitation (%)', { exact: true }).fill(values.precip ?? '30');
-  await page.getByLabel('Maximum wind (km/h)', { exact: true }).fill(values.wind ?? '25');
 }
 
 const result = (page: Page) => page.getByRole('region', { name: 'Planning result' });
@@ -60,25 +58,24 @@ test('shows the constraints used and forecast values for a successful Laval hiki
   await expect(result(page)).toContainText('Highest precipitation probability10%');
   await expect(result(page)).toContainText('Highest sustained wind12 km/h');
   const constraints = result(page).getByRole('definition');
-  await expect(constraints).toContainText(['10%', '12 km/h', 'hiking', 'Mon, Jun 14 (2027-06-14)', '2 hours', '30%', '25 km/h']);
+  await expect(constraints).toContainText(['10%', '12 km/h', 'hiking', 'Mon, Jun 14 (2027-06-14)', '2 hours', '20%', '20 km/h']);
   await expect(result(page)).toContainText('Based on the Open-Meteo forecast for Laval, Québec');
 
   expect(requests).toHaveLength(1);
   expect(requests[0]!.headers()['content-type']).toBe('application/json');
-  // Only the validated structured fields, with numeric values.
+  // Only the validated structured fields; the comfort limits are applied by the server.
   expect(requests[0]!.postDataJSON()).toEqual({
-    cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14',
-    durationHours: 2, maxPrecipitationProbability: 30, maxWindKmh: 25,
+    cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', durationHours: 2,
   });
 });
 
 test('reports clearly when no window meets the criteria', async ({ page }) => {
   await setup(page, [{ json: { outcome: 'no_match', mode: 'rule-based' } }]);
-  await fillForm(page, { wind: '5' });
+  await fillForm(page);
   await findButton(page).click();
   await expect(result(page).getByRole('heading', { name: 'No time meets these limits' })).toBeVisible();
   await expect(result(page)).toContainText('No 2-hour period on Mon, Jun 14 in Laval, Québec');
-  await expect(result(page)).toContainText('5 km/h');
+  await expect(result(page)).toContainText('stays within the comfort limits for every hour');
   await expect(result(page)).not.toContainText('Best time');
 });
 
@@ -106,19 +103,25 @@ test('validates inputs in the browser and sends nothing until they are valid', a
   await expect(activity).toHaveAccessibleDescription('Choose an activity.');
   await expect(page.getByLabel('Date', { exact: true })).toHaveAccessibleDescription('Choose a date from 2027-06-14 to 2027-06-20.');
 
-  await fillForm(page, { duration: '5', precip: '101', date: '2027-06-21' });
+  await fillForm(page, { duration: '5', date: '2027-06-21' });
   await findButton(page).click();
   await expect(page.getByLabel('Date', { exact: true })).toBeFocused();
   await expect(page.getByLabel('Duration (hours)', { exact: true })).toHaveAccessibleDescription('Enter a whole number of hours from 1 to 4.');
-  await expect(page.getByLabel('Maximum precipitation (%)', { exact: true }))
-    .toHaveAccessibleDescription('Enter a precipitation probability from 0 to 100%.');
   await expect(activity).not.toHaveAttribute('aria-invalid');
   expect(requests).toHaveLength(0);
 
   await fillForm(page);
-  await page.getByLabel('Maximum wind (km/h)', { exact: true }).press('Enter');
+  await page.getByLabel('Duration (hours)', { exact: true }).press('Enter');
   await expect(result(page)).toContainText('Best time');
   expect(requests).toHaveLength(1);
+});
+
+test('has no threshold inputs and states the fixed comfort limits', async ({ page }) => {
+  await setup(page, [{ json: match }]);
+  await expect(page.getByLabel('Maximum precipitation (%)')).toHaveCount(0);
+  await expect(page.getByLabel('Maximum wind (km/h)')).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Plan an activity' }))
+    .toContainText('at most a 20% chance of precipitation and 20 km/h of sustained wind');
 });
 
 test('offers dates from today to six days ahead in the city zone', async ({ page }) => {
@@ -183,5 +186,5 @@ test('never shows a result for a previously selected city', async ({ page }) => 
   await page.getByRole('option', { name: /Vancouver/ }).click();
   await expect(result(page)).toBeEmpty();
   await expect(page.getByRole('heading', { name: 'Plan an activity' })).toBeVisible();
-  await expect(page.getByText('Find the best time in Vancouver, British Columbia')).toBeVisible();
+  await expect(page.getByText('Find the most comfortable time in Vancouver, British Columbia')).toBeVisible();
 });

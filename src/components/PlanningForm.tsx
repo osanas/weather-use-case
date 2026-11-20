@@ -3,6 +3,8 @@
 import { useCallback, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import type { City } from '@/lib/cities';
 import { submitPlan } from '@/lib/planner/client';
+import { COMFORT_LIMITS } from '@/lib/planner/criteria';
+import { formatPercent, formatWind } from '@/lib/format';
 import {
   EMPTY_FORM, fieldMessage, FORM_FIELDS, planDateBounds, validatePlanForm,
   type FormField, type PlanFormErrors, type PlanFormValues,
@@ -98,7 +100,11 @@ export function PlanningForm({ city, cityName }: { city: City; cityName: string 
   return (
     <section className="card planner" aria-labelledby="planner-heading">
       <h2 id="planner-heading">Plan an activity</h2>
-      <p className="note">Find the best time in {cityName} for the limits you choose.</p>
+      <p className="note" id="planner-limits">
+        Find the most comfortable time in {cityName}. Every hour must have at most a{' '}
+        {formatPercent(COMFORT_LIMITS.maxPrecipitationProbability)} chance of precipitation and{' '}
+        {formatWind(COMFORT_LIMITS.maxWindKmh)} of sustained wind.
+      </p>
       <form noValidate onSubmit={onSubmit}>
         {errors.cityId || errors.form
           ? <p className="field-error" role="alert">{errors.cityId ?? errors.form}</p>
@@ -120,19 +126,6 @@ export function PlanningForm({ city, cityName }: { city: City; cityName: string 
           <label htmlFor="plan-durationHours">Duration (hours)</label>
           <input {...fieldProps('durationHours')} type="number" inputMode="numeric" required min={1} max={4} step={1} />
           {fieldError('durationHours')}
-        </div>
-        <div className="field">
-          <label htmlFor="plan-maxPrecipitationProbability">Maximum precipitation (%)</label>
-          <input
-            {...fieldProps('maxPrecipitationProbability')}
-            type="number" inputMode="decimal" required min={0} max={100} step="any"
-          />
-          {fieldError('maxPrecipitationProbability')}
-        </div>
-        <div className="field">
-          <label htmlFor="plan-maxWindKmh">Maximum wind (km/h)</label>
-          <input {...fieldProps('maxWindKmh')} type="number" inputMode="decimal" required min={0} step="any" />
-          {fieldError('maxWindKmh')}
         </div>
         {/* Kept enabled while loading so keyboard focus stays put; a new request replaces the old one. */}
         <button type="submit" aria-describedby={loading ? 'plan-loading' : undefined}>Find best time</button>

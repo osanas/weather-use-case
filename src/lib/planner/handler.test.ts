@@ -31,10 +31,10 @@ function providerForecast(
   return { ...syntheticForecast({ fetchedAt, hourly }), localDays: days };
 }
 
-const criteria = {
-  cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14',
-  durationHours: 2, maxPrecipitationProbability: 30, maxWindKmh: 25,
-};
+/** Request body: the four browser fields. */
+const criteria = { cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', durationHours: 2 };
+/** Criteria the planner used: the request plus the fixed comfort limits. */
+const applied = { ...criteria, maxPrecipitationProbability: 20, maxWindKmh: 20 };
 
 function setup(fetchForecast: (city: City) => Promise<ProviderForecast> = async () => providerForecast()) {
   const logs: PlanLogEntry[] = [];
@@ -59,7 +59,7 @@ describe('POST /api/plan', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(await res.json()).toEqual({
-      outcome: 'match', mode: 'rule-based', criteria,
+      outcome: 'match', mode: 'rule-based', criteria: applied,
       start: '2027-06-14T15:00:00.000Z', end: '2027-06-14T17:00:00.000Z',
       maxPrecipitationProbability: 5, maxWindKmh: 10,
     });
@@ -67,18 +67,28 @@ describe('POST /api/plan', () => {
     expect(fetchSpy.mock.calls[0]![0].id).toBe('laval-qc');
   });
 
+  it('applies the comfort limits inclusively: 20 % and 20 km/h pass, 21 km/h fails', async () => {
+    const at = (iso: string) => Date.parse(iso);
+    const { postJson } = setup(async () => providerForecast(t =>
+      t === at('2027-06-14T15:00:00Z') || t === at('2027-06-14T16:00:00Z') ? [20, 20]
+        : t === at('2027-06-14T18:00:00Z') ? [0, 21] : [80, 40]));
+    expect(await (await postJson(criteria)).json()).toMatchObject({
+      outcome: 'match', start: '2027-06-14T15:00:00.000Z', maxPrecipitationProbability: 20, maxWindKmh: 20,
+    });
+  });
+
   it('returns no_match with HTTP 200 when every window fails', async () => {
     const { postJson } = setup(async () => providerForecast(() => [80, 40]));
     const res = await postJson(criteria);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ outcome: 'no_match', mode: 'rule-based', criteria });
+    expect(await res.json()).toEqual({ outcome: 'no_match', mode: 'rule-based', criteria: applied });
   });
 
   it('returns insufficient with HTTP 200 when readings are missing', async () => {
     const { postJson } = setup(async () => providerForecast(() => [10, null]));
     const res = await postJson(criteria);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ outcome: 'insufficient', reason: 'missing_data', mode: 'rule-based', criteria });
+    expect(await res.json()).toEqual({ outcome: 'insufficient', reason: 'missing_data', mode: 'rule-based', criteria: applied });
   });
 
   it('returns insufficient when the forecast is stale', async () => {
@@ -101,6 +111,8 @@ describe('POST /api/plan', () => {
     ['an unknown city', { ...criteria, cityId: 'unknown' }, ['cityId']],
     ['a five-hour duration', { ...criteria, durationHours: 5 }, ['durationHours']],
     ['an unknown field', { ...criteria, note: 'free text' }, ['unknown_field']],
+    ['a client-supplied wind limit', { ...criteria, maxWindKmh: 200 }, ['unknown_field']],
+    ['a client-supplied precipitation limit', { ...criteria, maxPrecipitationProbability: 100 }, ['unknown_field']],
     ['a non-object body', [criteria], ['body']],
   ])('rejects %s with 400 before any provider call', async (_name, body, fields) => {
     const { postJson, fetchSpy, logs } = setup();
