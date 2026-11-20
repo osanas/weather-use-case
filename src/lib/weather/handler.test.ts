@@ -1,16 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { City } from '@/lib/cities';
+import { getCityById, type City } from '@/lib/cities';
 import { createForecastCache, FORECAST_TTL_MS } from './cache';
 import { createWeatherHandler, type WeatherLogEntry } from './handler';
 import { ProviderError } from './open-meteo';
+import { syntheticForecast } from './test-fixtures';
 import type { WeatherResponse } from './types';
 
-const forecast: WeatherResponse = {
-  cityId: 'laval-qc',
-  timezone: 'America/Toronto',
-  fetchedAt: '2027-06-14T12:00:00.000Z',
-  current: { time: '2027-06-14T12:00:00.000Z', temperatureC: 18, windKmh: 15, weatherCode: 0 },
-};
+const forecast: WeatherResponse = syntheticForecast();
 
 function setup(fetchForecast: (city: City) => Promise<WeatherResponse>) {
   let t = 1_000;
@@ -101,6 +97,33 @@ describe('GET /api/weather', () => {
     expect((await get('?cityId=laval-qc')).status).toBe(503);
     expect((await get('?cityId=laval-qc')).status).toBe(200);
     expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns current, hourly and daily data from a single upstream fetch', async () => {
+    const { get, fetchSpy } = setup(async () => forecast);
+    const first = await (await get('?cityId=laval-qc')).json();
+    const second = await (await get('?cityId=laval-qc')).json();
+    expect(first.hourly).toEqual(forecast.hourly);
+    expect(first.daily).toEqual(forecast.daily);
+    expect(second).toEqual(first);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('caches each catalogue city separately', async () => {
+    const { get, fetchSpy } = setup(async city => syntheticForecast({ cityId: city.id, timezone: city.timeZone }));
+    const laval = await (await get('?cityId=laval-qc')).json();
+    const vancouver = await (await get('?cityId=vancouver-bc')).json();
+    await get('?cityId=vancouver-bc');
+    expect(laval.cityId).toBe('laval-qc');
+    expect(vancouver).toMatchObject({ cityId: 'vancouver-bc', timezone: 'America/Vancouver' });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('passes only the catalogue city to the provider, never request data', async () => {
+    const { get, fetchSpy } = setup(async () => forecast);
+    await get('?cityId=laval-qc&lat=1&lon=2&timezone=Etc/UTC');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls[0]).toEqual([getCityById('laval-qc')]);
   });
 
   it('does not cache invalid provider payloads', async () => {

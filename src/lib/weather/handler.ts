@@ -1,6 +1,6 @@
 import { getCityById, type City } from '@/lib/cities';
 import { createForecastCache, type ForecastCache } from './cache';
-import { fetchCurrentWeather, ProviderError, type ProviderOutcome } from './open-meteo';
+import { fetchForecast, ProviderError, type ProviderOutcome } from './open-meteo';
 import type { WeatherErrorBody, WeatherResponse } from './types';
 
 /** Only these fields may be logged. No URLs, headers, IPs or bodies. */
@@ -61,7 +61,7 @@ export function createWeatherHandler(deps: WeatherHandlerDeps) {
 
 export const defaultWeatherHandler = createWeatherHandler({
   cache: createForecastCache(),
-  fetchForecast: city => fetchCurrentWeather(city),
+  fetchForecast: city => fetchForecast(city),
   log: entry => console.warn(JSON.stringify(entry)),
   now: Date.now,
 });
