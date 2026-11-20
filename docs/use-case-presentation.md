@@ -126,7 +126,7 @@ flowchart LR
 | WEA-12 | Approved default thresholds per activity | Done |
 | WEA-9 | Bounded Groq agent with rule-based fallback | In Review |
 | WEA-10 | Harden and verify the production demo (rate limits, privacy notice, release record) | Todo |
-| WEA-13 | Conversational guide for the planning form | Backlog |
+| WEA-13 | Conversational guide for the planning form | In Progress |
 
 ## 5. GitHub Actions and automated checks
 

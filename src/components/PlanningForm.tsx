@@ -8,7 +8,9 @@ import {
   EMPTY_FORM, fieldMessage, FORM_FIELDS, planDateBounds, validatePlanForm,
   type FormField, type PlanFormErrors, type PlanFormValues,
 } from '@/lib/planner/form';
+import { guidePrompt } from '@/lib/planner/guide';
 import { ACTIVITIES, type PlanResponse } from '@/lib/planner/types';
+import { PlanningGuide } from './PlanningGuide';
 import { PlanResult } from './PlanResult';
 
 const ACTIVITY_LABELS: Record<(typeof ACTIVITIES)[number], string> = {
@@ -96,6 +98,7 @@ export function PlanningForm({ city, cityName }: { city: City; cityName: string 
   // A result for a previously selected city is never shown for the current one.
   const current = request && request.cityId === city.id ? request : null;
   const loading = current?.status === 'loading';
+  const prompt = guidePrompt({ cityName, values, errors, bounds, request: current });
 
   return (
     <section className="card planner" aria-labelledby="planner-heading">
@@ -104,31 +107,34 @@ export function PlanningForm({ city, cityName }: { city: City; cityName: string 
         Find the best time in {cityName}. Precipitation and wind limits are set by the app and shown
         with the result.
       </p>
-      <form noValidate onSubmit={onSubmit}>
-        {errors.cityId || errors.form
-          ? <p className="field-error" role="alert">{errors.cityId ?? errors.form}</p>
-          : null}
-        <div className="field">
-          <label htmlFor="plan-activity">Activity</label>
-          <select {...fieldProps('activity')} required>
-            <option value="">Choose an activity</option>
-            {ACTIVITIES.map(a => <option key={a} value={a}>{ACTIVITY_LABELS[a]}</option>)}
-          </select>
-          {fieldError('activity')}
-        </div>
-        <div className="field">
-          <label htmlFor="plan-date">Date</label>
-          <input {...fieldProps('date')} type="date" required min={bounds?.min} max={bounds?.max} />
-          {fieldError('date')}
-        </div>
-        <div className="field">
-          <label htmlFor="plan-durationHours">Duration (hours)</label>
-          <input {...fieldProps('durationHours')} type="number" inputMode="numeric" required min={1} max={4} step={1} />
-          {fieldError('durationHours')}
-        </div>
-        {/* Kept enabled while loading so keyboard focus stays put; a new request replaces the old one. */}
-        <button type="submit" aria-describedby={loading ? 'plan-loading' : undefined}>Find best time</button>
-      </form>
+      <div className="planner-body">
+        <PlanningGuide prompt={prompt} />
+        <form noValidate onSubmit={onSubmit}>
+          {errors.cityId || errors.form
+            ? <p className="field-error" role="alert">{errors.cityId ?? errors.form}</p>
+            : null}
+          <div className="field">
+            <label htmlFor="plan-activity">Activity</label>
+            <select {...fieldProps('activity')} required>
+              <option value="">Choose an activity</option>
+              {ACTIVITIES.map(a => <option key={a} value={a}>{ACTIVITY_LABELS[a]}</option>)}
+            </select>
+            {fieldError('activity')}
+          </div>
+          <div className="field">
+            <label htmlFor="plan-date">Date</label>
+            <input {...fieldProps('date')} type="date" required min={bounds?.min} max={bounds?.max} />
+            {fieldError('date')}
+          </div>
+          <div className="field">
+            <label htmlFor="plan-durationHours">Duration (hours)</label>
+            <input {...fieldProps('durationHours')} type="number" inputMode="numeric" required min={1} max={4} step={1} />
+            {fieldError('durationHours')}
+          </div>
+          {/* Kept enabled while loading so keyboard focus stays put; a new request replaces the old one. */}
+          <button type="submit" aria-describedby={loading ? 'plan-loading' : undefined}>Find best time</button>
+        </form>
+      </div>
       <PlanResult
         state={current}
         city={city}
