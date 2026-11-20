@@ -44,7 +44,7 @@ const result = (page: Page) => page.getByRole('region', { name: 'Planning result
 const findButton = (page: Page) => page.getByRole('button', { name: 'Find best time' });
 
 // Effective criteria echoed by the server. The thresholds are synthetic test values, not
-// approved defaults (WEA-12 defines those).
+// the approved defaults, so the test proves the limits shown come from the response.
 const criteria = {
   cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', durationHours: 2,
   maxPrecipitationProbability: 35, maxWindKmh: 28,
@@ -131,12 +131,12 @@ test('has no precipitation or wind controls and shows no threshold values before
   await expect(planner).not.toContainText(/\d+\s*%|\d+\s*km\/h/);
 });
 
-test('shows an accessible message when planning thresholds are not defined yet', async ({ page }) => {
+test('shows an accessible message when planning is unavailable', async ({ page }) => {
   const requests = await setup(page, [{ json: { outcome: 'planning_unavailable', reason: 'thresholds_not_defined' } }]);
   await fillForm(page);
   await findButton(page).click();
-  await expect(result(page).getByRole('heading', { name: 'Activity planning is not available yet' })).toBeVisible();
-  await expect(result(page)).toContainText('limits used to recommend a time have not been defined yet');
+  await expect(result(page).getByRole('heading', { name: 'Activity planning is temporarily unavailable' })).toBeVisible();
+  await expect(result(page)).toContainText('No time can be recommended right now.');
   await expect(result(page)).not.toContainText('Constraints used');
   // The forecast stays usable.
   await expect(page.getByRole('region', { name: 'Current conditions in Laval, Québec' })).toBeVisible();

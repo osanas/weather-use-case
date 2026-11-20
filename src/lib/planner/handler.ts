@@ -69,8 +69,9 @@ const isJson = (contentType: string | null) =>
  * `POST /api/plan`. Validates the request before any upstream work, loads the city's
  * public forecast (shared five-minute cache) and returns the deterministic planner result.
  *
- * Thresholds come from the server policy, never from the request. Without approved
- * thresholds the response is `planning_unavailable` and no forecast is fetched.
+ * Thresholds come from the server policy (the approved WEA-12 defaults per activity),
+ * never from the request. If the policy yields no valid thresholds (a misconfiguration),
+ * the response is `planning_unavailable` and no forecast is fetched.
  *
  * WEA-8 scope: the result is always produced by the rule-based planner, so `mode` is
  * `rule-based`. The AI agent, `AI_ENABLED` handling and model fallback belong to WEA-9.
