@@ -17,7 +17,7 @@ for (const mode of ['agent', 'rule-based'] as const) {
     await page.clock.setFixedTime(new Date('2027-06-14T12:00:00Z'));
     await page.route('**/api/weather?*', route => route.fulfill({ json: forecast }));
     // The response echoes the effective criteria. Thresholds here are synthetic test values,
-    // not approved defaults (WEA-12 defines those).
+    // deliberately different from the approved defaults (src/lib/planner/thresholds.ts).
     await page.route('**/api/plan', route => route.fulfill({ json: {
       outcome: 'match', mode, start: '2027-06-14T15:00:00Z',
       end: '2027-06-14T17:00:00Z', maxWindKmh: 12, maxPrecipitationProbability: 10,

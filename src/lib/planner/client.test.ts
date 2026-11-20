@@ -3,7 +3,8 @@ import { PLAN_UNAVAILABLE, submitPlan, toPlanResponse } from './client';
 import type { PlanRequest } from './criteria';
 
 const request: PlanRequest = { cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', durationHours: 2 };
-// Synthetic thresholds for tests only, not approved defaults (WEA-12 defines those).
+// Synthetic thresholds, deliberately different from the approved defaults, so the test
+// proves the displayed limits come from the server response.
 const effective = { ...request, maxPrecipitationProbability: 35, maxWindKmh: 28 };
 const match = {
   outcome: 'match', mode: 'rule-based', start: '2027-06-14T15:00:00Z', end: '2027-06-14T17:00:00Z',

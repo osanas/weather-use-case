@@ -68,10 +68,9 @@ function Content({ state, city, cityName, onRetry }: {
   if (data.outcome === 'planning_unavailable') {
     return (
       <>
-        <h3>Activity planning is not available yet</h3>
+        <h3>Activity planning is temporarily unavailable</h3>
         <p>
-          The precipitation and wind limits used to recommend a time have not been defined yet, so no
-          time can be recommended. The forecast for {cityName} above is still available.
+          No time can be recommended right now. The forecast for {cityName} above is still available.
         </p>
       </>
     );

@@ -55,8 +55,9 @@ export type Thresholds = Pick<PlanCriteria, 'maxPrecipitationProbability' | 'max
 /**
  * Response body of `POST /api/plan` with HTTP 200. Planner results echo the effective
  * criteria, thresholds included, so the interface can show the constraints used.
- * `planning_unavailable` means no approved thresholds exist yet (WEA-12), so the planner
- * was not run and no forecast was fetched.
+ * `planning_unavailable` means the server policy yielded no valid thresholds (a
+ * misconfiguration, not a normal outcome), so the planner was not run and no forecast was
+ * fetched.
  */
 export type PlanResponse =
   | (Exclude<PlanResult, { outcome: 'outside_horizon' }> & { mode: PlanMode })

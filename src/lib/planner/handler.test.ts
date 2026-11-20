@@ -7,7 +7,7 @@ import type { HourlyPoint, LocalDay, ProviderForecast } from '@/lib/weather/type
 import { createPlanHandler, MAX_PLAN_BODY_BYTES, type PlanLogEntry } from './handler';
 import * as plannerModule from './planner';
 import { addCalendarDays, hourStartsOfDay } from './planner';
-import type { ThresholdPolicy } from './thresholds';
+import { APPROVED_THRESHOLDS, approvedThresholdPolicy, type ThresholdPolicy } from './thresholds';
 import type { Activity, Thresholds } from './types';
 
 // Synthetic data only. Laval, EDT (UTC-4); provider midnights at 04:00Z.
@@ -37,8 +37,8 @@ function providerForecast(
 /** Request body: the four user-selected fields. */
 const criteria = { cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', durationHours: 2 };
 
-// Synthetic thresholds injected for tests only. They are NOT approved defaults; WEA-12
-// defines those. Deliberately unusual values so they are not mistaken for policy.
+// Synthetic thresholds injected for tests only, deliberately different from the approved
+// defaults (APPROVED_THRESHOLDS) so they are not mistaken for policy.
 const SYNTHETIC: Thresholds = { maxPrecipitationProbability: 35, maxWindKmh: 28 };
 const syntheticPolicy: ThresholdPolicy = () => SYNTHETIC;
 /** Criteria the planner used: the request plus the resolved synthetic thresholds. */
@@ -91,7 +91,7 @@ describe('POST /api/plan', () => {
   });
 
   describe('threshold policy', () => {
-    it('returns planning_unavailable with the default policy, before any forecast fetch', async () => {
+    it('returns planning_unavailable when the policy yields no thresholds, before any forecast fetch', async () => {
       const { postJson, fetchSpy, logs } = setup(undefined, () => null);
       const res = await postJson(criteria);
       expect(res.status).toBe(200);
@@ -101,11 +101,51 @@ describe('POST /api/plan', () => {
       expect(logs).toEqual([]);
     });
 
-    it('ships with no approved thresholds until WEA-12 defines them', async () => {
-      const { approvedThresholdPolicy } = await import('./thresholds');
+    it('uses the approved WEA-12 defaults for each activity with the production policy', async () => {
+      const plan = vi.spyOn(plannerModule, 'planActivityWindow');
+      const { postJson } = setup(undefined, approvedThresholdPolicy);
       for (const activity of ['hiking', 'cycling', 'walking'] as const) {
-        expect(approvedThresholdPolicy(activity)).toBeNull();
+        const res = await postJson({ ...criteria, activity });
+        const body = await res.json();
+        expect(body.outcome).not.toBe('planning_unavailable');
+        expect(body.criteria).toEqual({ ...criteria, activity, ...APPROVED_THRESHOLDS[activity] });
+        expect(plan).toHaveBeenLastCalledWith(
+          expect.anything(), { ...criteria, activity, ...APPROVED_THRESHOLDS[activity] }, NOW);
       }
+      plan.mockRestore();
+    });
+
+    // Inclusive boundaries with the approved values: an hour exactly at both maxima passes,
+    // one unit above either maximum fails.
+    it.each([
+      ['cycling', [20, 20], [21, 20], [20, 21]],
+      ['hiking', [30, 30], [31, 30], [30, 31]],
+      ['walking', [40, 35], [41, 35], [40, 36]],
+    ] as const)('applies the approved %s maxima inclusively', async (activity, atLimit, rainAbove, windAbove) => {
+      const at = (iso: string) => Date.parse(iso);
+      const reading = (pair: readonly [number, number]) => (t: number) =>
+        t === at('2027-06-14T15:00:00Z') || t === at('2027-06-14T16:00:00Z') ? [...pair] as [number, number] : [80, 60] as [number, number];
+      const request = { ...criteria, activity };
+      const run = async (pair: readonly [number, number]) => {
+        const { postJson } = setup(async () => providerForecast(reading(pair)), approvedThresholdPolicy);
+        return (await postJson(request)).json();
+      };
+      expect(await run(atLimit)).toMatchObject({
+        outcome: 'match', start: '2027-06-14T15:00:00.000Z',
+        maxPrecipitationProbability: atLimit[0], maxWindKmh: atLimit[1],
+      });
+      expect(await run(rainAbove)).toMatchObject({ outcome: 'no_match' });
+      expect(await run(windAbove)).toMatchObject({ outcome: 'no_match' });
+    });
+
+    it('still rejects client-supplied thresholds with the production policy', async () => {
+      const { postJson, fetchSpy } = setup(undefined, approvedThresholdPolicy);
+      for (const extra of [{ maxWindKmh: 100 }, { maxPrecipitationProbability: 100 }]) {
+        const res = await postJson({ ...criteria, ...extra });
+        expect(res.status).toBe(400);
+        expect(await res.json()).toMatchObject({ fields: ['unknown_field'] });
+      }
+      expect(fetchSpy).not.toHaveBeenCalled();
     });
 
     it('still validates the request before reporting planning_unavailable', async () => {
