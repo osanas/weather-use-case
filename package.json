@@ -15,7 +15,9 @@
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "check:bundle": "node scripts/check-client-bundle.ts",
+    "check:release": "node scripts/check-release.ts"
   },
   "dependencies": {
     "next": "^16.4.6",

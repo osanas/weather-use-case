@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { WeatherApp } from '@/components/WeatherApp';
 import { CITIES, getCityById } from '@/lib/cities';
 
@@ -19,6 +20,8 @@ export default function HomePage() {
           <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">
             Open-Meteo.com
           </a>
+          {' · '}
+          <Link href="/privacy">Privacy notice</Link>
         </p>
       </footer>
     </main>

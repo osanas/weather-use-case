@@ -1,9 +1,12 @@
 import type { NextConfig } from 'next';
+import { SECURITY_HEADERS } from './src/lib/security-headers';
 
-// Security headers and CSP are handled by the hardening ticket (SEC-01/SEC-02).
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  async headers() {
+    return [{ source: '/:path*', headers: [...SECURITY_HEADERS] }];
+  },
 };
 
 export default nextConfig;

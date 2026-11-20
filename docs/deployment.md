@@ -55,6 +55,38 @@ References
 3. Verify city search, forecast rendering, a live AI tool call and the labeled rule-based fallback. Confirm with logs that provider errors are actionable and user payloads are absent. Check rate limiting with low-volume requests from a controlled source and verify that the app recovers after the window.
 4. Record the production URL, SHA, checked model, function region, firewall thresholds, provider data settings, date and verification results. Keep configuration details that could expose credentials or identifying logs in a private operations record.
 
+## Release record
+
+Fill this table for the release commit. Keep credentials and identifying log excerpts in the private operations record. `npm run check:release` fails while the privacy notice facts (`src/lib/privacy-settings.ts`) or the README release table still contain placeholders.
+
+### Automated evidence (every pull request)
+
+| Check | Where | What it proves |
+|---|---|---|
+| Verify (lint, typecheck, unit, build, client-bundle check, Playwright) | GitHub Actions `ci.yml` | Behaviour, security headers, privacy notice link, no AI configuration in the client bundle |
+| Gitleaks | `gitleaks.yml` | No secret in repository history |
+| OSV-Scanner, Trivy | `osv-scanner.yml`, `trivy.yml` | No known vulnerable dependency or high-severity misconfiguration |
+| actionlint | `actionlint.yml` | Workflows are valid |
+
+### Production checks (maintainer)
+
+| # | Check | How | Result |
+|---|---|---|---|
+| 1 | Verify passes on the release commit | GitHub Actions run for the merge commit | _pending_ |
+| 2 | Production URL and deployed SHA | Vercel deployment details; record in README | _pending_ |
+| 3 | Function region | Vercel project settings and a function response | _pending_ |
+| 4 | Environment variables | `AI_ENABLED`, `GROQ_API_KEY`, `GROQ_MODEL` set for Production only; Preview keyless with `AI_ENABLED=false` | _pending_ |
+| 5 | Rate limit on `/api/plan` | Vercel Firewall rule (start at 5 requests per minute per source); send a short burst from a controlled source, confirm limiting and recovery | _pending_ |
+| 6 | Signed-out desktop and mobile test | Private window on desktop and a phone: search, forecast, planning, keyboard navigation | _pending_ |
+| 7 | AI path | Planning result labelled AI-assisted with the production key | _pending_ |
+| 8 | AI failure | Preview with an invalid key or `AI_ENABLED=false`: same result labelled rule-based, forecast still works | _pending_ |
+| 9 | Weather failure | Covered by CI (provider failure tests); on a preview, confirm the retryable error state | _pending_ |
+| 10 | Security headers | `curl -sI <url>` and `curl -sI <url>/api/weather?cityId=laval-qc`: CSP `frame-ancestors 'none'`, `X-Frame-Options`, `nosniff`, referrer and permissions policies, HSTS | _pending_ |
+| 11 | Keys stay server-side | CI client-bundle check on the release commit; Gitleaks passes; no key in function logs | _pending_ |
+| 12 | Logs | Vercel function logs show only `route`, `status`, `outcome`, `elapsedMs` entries | _pending_ |
+| 13 | Privacy notice | `/privacy` matches operator, contact, region and Groq retention; `npm run check:release` passes | _pending_ |
+| 14 | ZAP baseline | Run `zap-baseline.yml` against the production URL; review findings | _pending_ |
+
 ## Rollback and incidents
 
 For a failing model, set `AI_ENABLED=false` and redeploy so weather and the rule-based planner remain available. For a breaking app deploy, restore the last known-good eligible production deployment through Vercel or revert the offending change on `main` and redeploy. Check deployment age, bundled environment and credentials before restoring an old build. A revoked credential stays revoked. Retest the public URL and reconcile `main` with production.

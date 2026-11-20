@@ -2,6 +2,8 @@
 
 A weather app with an assistant that finds the best forecast window for an outdoor activity.
 
+Fill in the table below after the production checks in [Deployment](docs/deployment.md#release-record); `npm run check:release` fails until it is complete.
+
 | Release information | Value |
 |---|---|
 | Public app | _Fill in after the production smoke test._ |
