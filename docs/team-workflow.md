@@ -34,7 +34,7 @@ Commit package.json and package-lock.json together. CI expects working lint, typ
 
 ## Browser-test contract
 
-The included suite specifies the proposed English accessible labels, the request fields and example response shapes for the initial implementation. Use a searchable city combobox, an activity select, a date input, a duration input and a named result region. Thresholds are fixed server-side comfort limits, so the form has no threshold inputs. The test uses a fixed Toronto clock and intercepts browser calls to the two same-origin API routes. Implement the page to fetch these routes for this journey. Keep contracts aligned when field names or controls change.
+The included suite specifies the proposed English accessible labels, the request fields and example response shapes for the initial implementation. Use a searchable city combobox, an activity select, a date input, a duration input and a named result region. Thresholds come from the server-side policy, so the form has no threshold inputs; responses echo the effective criteria. The test uses a fixed Toronto clock and intercepts browser calls to the two same-origin API routes. Implement the page to fetch these routes for this journey. Keep contracts aligned when field names or controls change.
 
 The two browser cases verify request construction, local-time display and the visible AI-assisted or rule-based mode. Both use synthetic responses. Add a separate planner unit test that supplies winds of 15 and 30 km/h and rejects that two-hour period for a 25 km/h maximum. Add a server integration test that simulates a model timeout and checks that the real handler produces the rule-based result. The production smoke test exercises the actual providers.
 

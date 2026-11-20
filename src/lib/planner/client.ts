@@ -1,3 +1,4 @@
+import type { PlanRequest } from './criteria';
 import type { PlanCriteria, PlanMode, PlanResponse } from './types';
 
 export const PLAN_UNAVAILABLE = 'Planning is temporarily unavailable. Try again.';
@@ -16,13 +17,25 @@ const isInstant = (v: unknown): v is string => typeof v === 'string' && !Number.
 const MODES: readonly PlanMode[] = ['agent', 'rule-based'];
 
 /**
- * Shape check for a `POST /api/plan` 200 body. Rendered values (times and figures) come
- * only from fields checked here. The criteria shown are the ones the browser sent, since
- * the server validates them and cannot change them.
+ * Shape check for a `POST /api/plan` 200 body. Rendered values (times, figures and the
+ * effective thresholds) come only from fields checked here. The user-selected fields shown
+ * are the ones the browser sent; the thresholds come from the server's `criteria`, since
+ * only the server knows the policy.
  */
-export function toPlanResponse(body: unknown, criteria: PlanCriteria): PlanResponse | null {
-  if (!isObj(body) || !MODES.includes(body.mode as PlanMode)) return null;
+export function toPlanResponse(body: unknown, request: PlanRequest): PlanResponse | null {
+  if (!isObj(body)) return null;
+  if (body.outcome === 'planning_unavailable') {
+    return { outcome: 'planning_unavailable', reason: 'thresholds_not_defined' };
+  }
+  if (!MODES.includes(body.mode as PlanMode)) return null;
   const mode = body.mode as PlanMode;
+  const effective = isObj(body.criteria) ? body.criteria : null;
+  if (!effective || !isNum(effective.maxPrecipitationProbability) || !isNum(effective.maxWindKmh)) return null;
+  const criteria: PlanCriteria = {
+    ...request,
+    maxPrecipitationProbability: effective.maxPrecipitationProbability,
+    maxWindKmh: effective.maxWindKmh,
+  };
   switch (body.outcome) {
     case 'match':
       if (!isInstant(body.start) || !isInstant(body.end) || Date.parse(body.end) <= Date.parse(body.start)) return null;
@@ -43,12 +56,12 @@ export function toPlanResponse(body: unknown, criteria: PlanCriteria): PlanRespo
 
 /** Sends only the validated structured request fields to the same-origin planning API. */
 export async function submitPlan(
-  criteria: PlanCriteria,
+  request: PlanRequest,
   signal?: AbortSignal,
   fetchImpl: typeof fetch = fetch,
 ): Promise<SubmitPlanResult> {
-  // Only the four request fields; the comfort maxima are applied by the server.
-  const { cityId, activity, date, durationHours } = criteria;
+  // Only the four user-selected fields; thresholds are resolved by the server.
+  const { cityId, activity, date, durationHours } = request;
   try {
     const response = await fetchImpl('/api/plan', {
       method: 'POST',
@@ -66,7 +79,7 @@ export async function submitPlan(
       const message = isObj(body) && typeof body.message === 'string' ? body.message : PLAN_UNAVAILABLE;
       return { ok: false, kind: 'unavailable', message };
     }
-    const data = toPlanResponse(body, criteria);
+    const data = toPlanResponse(body, request);
     return data ? { ok: true, data } : { ok: false, kind: 'unavailable', message: PLAN_UNAVAILABLE };
   } catch {
     return { ok: false, kind: 'unavailable', message: PLAN_UNAVAILABLE };

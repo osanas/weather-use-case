@@ -1,8 +1,7 @@
 import { localDateString } from '@/lib/forecast';
 import { FORECAST_DAYS } from '@/lib/weather/open-meteo';
-import { parsePlanRequest } from './criteria';
+import { parsePlanRequest, type PlanRequest } from './criteria';
 import { addCalendarDays } from './planner';
-import type { PlanCriteria } from './types';
 
 export const FORM_FIELDS = ['activity', 'date', 'durationHours'] as const;
 export type FormField = (typeof FORM_FIELDS)[number];
@@ -42,13 +41,13 @@ const toNumber = (value: string): number | undefined => {
 };
 
 export type FormValidation =
-  | { ok: true; criteria: PlanCriteria }
+  | { ok: true; request: PlanRequest }
   | { ok: false; errors: PlanFormErrors };
 
 /**
  * Validates the form with the same schema the server uses, plus the date bounds, so the
- * browser only sends structured, valid fields. The resulting criteria include the fixed
- * comfort limits for display; they are not sent. The server still validates everything.
+ * browser only sends structured, valid user-selected fields. Thresholds are never part of
+ * the form; the server resolves them. The server still validates everything.
  */
 export function validatePlanForm(values: PlanFormValues, cityId: string, bounds: DateBounds): FormValidation {
   const errors: PlanFormErrors = {};
@@ -64,6 +63,6 @@ export function validatePlanForm(values: PlanFormValues, cityId: string, bounds:
   if (!errors.date && (values.date < bounds.min || values.date > bounds.max)) {
     errors.date = fieldMessage('date', bounds);
   }
-  if (parsed.ok && Object.keys(errors).length === 0) return { ok: true, criteria: parsed.criteria };
+  if (parsed.ok && Object.keys(errors).length === 0) return { ok: true, request: parsed.request };
   return { ok: false, errors };
 }

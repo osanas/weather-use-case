@@ -2,12 +2,13 @@
 
 import type { City } from '@/lib/cities';
 import { formatDay, formatHour, formatPercent, formatWind } from '@/lib/format';
+import type { PlanRequest } from '@/lib/planner/criteria';
 import type { PlanCriteria, PlanMode, PlanResponse } from '@/lib/planner/types';
 
 type State =
-  | { status: 'loading'; criteria: PlanCriteria }
-  | { status: 'done'; criteria: PlanCriteria; data: PlanResponse }
-  | { status: 'error'; criteria: PlanCriteria; message: string };
+  | { status: 'loading'; request: PlanRequest }
+  | { status: 'done'; request: PlanRequest; data: PlanResponse }
+  | { status: 'error'; request: PlanRequest; message: string };
 
 const MODE_LABELS: Record<PlanMode, string> = {
   agent: 'AI-assisted recommendation',
@@ -16,6 +17,7 @@ const MODE_LABELS: Record<PlanMode, string> = {
 
 const hours = (n: number) => `${n} ${n === 1 ? 'hour' : 'hours'}`;
 
+/** Effective constraints from the server response. The thresholds are read-only policy values. */
 function Constraints({ criteria }: { criteria: PlanCriteria }) {
   return (
     <>
@@ -48,9 +50,6 @@ export function PlanResult({ state, city, cityName, onRetry }: {
 function Content({ state, city, cityName, onRetry }: {
   state: State; city: City; cityName: string; onRetry: () => void;
 }) {
-  const { criteria } = state;
-  const day = formatDay(criteria.date);
-
   if (state.status === 'loading') {
     return <p id="plan-loading" role="status">Finding the best time in {cityName}…</p>;
   }
@@ -65,6 +64,21 @@ function Content({ state, city, cityName, onRetry }: {
   }
 
   const { data } = state;
+
+  if (data.outcome === 'planning_unavailable') {
+    return (
+      <>
+        <h3>Activity planning is not available yet</h3>
+        <p>
+          The precipitation and wind limits used to recommend a time have not been defined yet, so no
+          time can be recommended. The forecast for {cityName} above is still available.
+        </p>
+      </>
+    );
+  }
+
+  const { criteria } = data;
+  const day = formatDay(criteria.date);
   const mode = <p className="mode">{MODE_LABELS[data.mode]}</p>;
 
   if (data.outcome === 'match') {
@@ -93,8 +107,8 @@ function Content({ state, city, cityName, onRetry }: {
         <h3>No time meets these limits</h3>
         {mode}
         <p>
-          No {criteria.durationHours}-hour period on {day} in {cityName} stays within the comfort limits for
-          every hour. Try another date or a shorter duration.
+          No {criteria.durationHours}-hour period on {day} in {cityName} stays within the precipitation and
+          wind limits for every hour. Try another date or a shorter duration.
         </p>
         <Constraints criteria={criteria} />
       </>

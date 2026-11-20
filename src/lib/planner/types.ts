@@ -4,8 +4,8 @@ export const ACTIVITIES = ['hiking', 'cycling', 'walking'] as const;
 export type Activity = (typeof ACTIVITIES)[number];
 
 /**
- * Validated planning criteria. The browser sends `cityId`, `activity`, `date` and
- * `durationHours`; the server adds the fixed comfort maxima (`COMFORT_LIMITS`).
+ * Effective planning criteria passed to the planner. The browser sends `cityId`,
+ * `activity`, `date` and `durationHours`; the server adds the thresholds from its policy.
  */
 export type PlanCriteria = {
   cityId: string;
@@ -14,9 +14,9 @@ export type PlanCriteria = {
   date: string;
   /** Whole hours, 1–4. */
   durationHours: number;
-  /** Inclusive maximum precipitation probability, 0–100 %. Fixed by the server. */
+  /** Inclusive maximum precipitation probability, 0–100 %. Resolved by the server policy. */
   maxPrecipitationProbability: number;
-  /** Inclusive maximum sustained wind speed, km/h. Fixed by the server. */
+  /** Inclusive maximum sustained wind speed, km/h. Resolved by the server policy. */
   maxWindKmh: number;
 };
 
@@ -49,8 +49,18 @@ export type PlanResult =
 /** How the recommendation was produced. WEA-9 adds the `agent` path. */
 export type PlanMode = 'agent' | 'rule-based';
 
-/** Response body of a successful `POST /api/plan` (HTTP 200). */
-export type PlanResponse = Exclude<PlanResult, { outcome: 'outside_horizon' }> & { mode: PlanMode };
+/** Threshold pair resolved by the server policy for an activity. */
+export type Thresholds = Pick<PlanCriteria, 'maxPrecipitationProbability' | 'maxWindKmh'>;
+
+/**
+ * Response body of `POST /api/plan` with HTTP 200. Planner results echo the effective
+ * criteria, thresholds included, so the interface can show the constraints used.
+ * `planning_unavailable` means no approved thresholds exist yet (WEA-12), so the planner
+ * was not run and no forecast was fetched.
+ */
+export type PlanResponse =
+  | (Exclude<PlanResult, { outcome: 'outside_horizon' }> & { mode: PlanMode })
+  | { outcome: 'planning_unavailable'; reason: 'thresholds_not_defined' };
 
 /** Error body of `POST /api/plan`. `fields` names invalid criteria, never their values. */
 export type PlanErrorBody = {

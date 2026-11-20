@@ -15,13 +15,10 @@ describe('planDateBounds', () => {
 });
 
 describe('validatePlanForm', () => {
-  it('converts valid inputs to typed criteria with the fixed comfort limits', () => {
+  it('converts valid inputs to the typed request, with no thresholds', () => {
     expect(validatePlanForm(filled, 'laval-qc', bounds)).toEqual({
       ok: true,
-      criteria: {
-        cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14',
-        durationHours: 2, maxPrecipitationProbability: 20, maxWindKmh: 20,
-      },
+      request: { cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', durationHours: 2 },
     });
   });
 

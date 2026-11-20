@@ -16,9 +16,15 @@ for (const mode of ['agent', 'rule-based'] as const) {
   test(`shows the planned window in ${mode} mode`, async ({ page }) => {
     await page.clock.setFixedTime(new Date('2027-06-14T12:00:00Z'));
     await page.route('**/api/weather?*', route => route.fulfill({ json: forecast }));
+    // The response echoes the effective criteria. Thresholds here are synthetic test values,
+    // not approved defaults (WEA-12 defines those).
     await page.route('**/api/plan', route => route.fulfill({ json: {
       outcome: 'match', mode, start: '2027-06-14T15:00:00Z',
       end: '2027-06-14T17:00:00Z', maxWindKmh: 12, maxPrecipitationProbability: 10,
+      criteria: {
+        cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', durationHours: 2,
+        maxPrecipitationProbability: 35, maxWindKmh: 28,
+      },
     } }));
     await page.goto('/');
     await page.getByRole('combobox', { name: 'City' }).fill('Laval');
@@ -29,7 +35,7 @@ for (const mode of ['agent', 'rule-based'] as const) {
     const request = page.waitForRequest(req =>
       new URL(req.url()).pathname === '/api/plan' && req.method() === 'POST');
     await page.getByRole('button', { name: 'Find best time' }).click();
-    // Thresholds are fixed comfort limits applied by the server, never sent by the browser.
+    // Thresholds are resolved by the server policy, never sent by the browser.
     expect((await request).postDataJSON()).toEqual({
       cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', durationHours: 2,
     });

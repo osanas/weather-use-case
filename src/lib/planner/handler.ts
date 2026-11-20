@@ -5,6 +5,7 @@ import { sharedForecastCache } from '@/lib/weather/handler';
 import type { ProviderForecast } from '@/lib/weather/types';
 import { parsePlanRequest } from './criteria';
 import { planActivityWindow } from './planner';
+import { approvedThresholdPolicy, resolveThresholds, type ThresholdPolicy } from './thresholds';
 import type { PlanErrorBody, PlanResponse } from './types';
 
 /** Request bodies above this size are rejected before parsing (product spec: 2 KiB). */
@@ -23,6 +24,8 @@ export type PlanHandlerDeps = {
   fetchForecast: (city: City) => Promise<ProviderForecast>;
   log: (entry: PlanLogEntry) => void;
   now: () => number;
+  /** Server-owned thresholds per activity (WEA-12). */
+  thresholds: ThresholdPolicy;
 };
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
@@ -66,6 +69,9 @@ const isJson = (contentType: string | null) =>
  * `POST /api/plan`. Validates the request before any upstream work, loads the city's
  * public forecast (shared five-minute cache) and returns the deterministic planner result.
  *
+ * Thresholds come from the server policy, never from the request. Without approved
+ * thresholds the response is `planning_unavailable` and no forecast is fetched.
+ *
  * WEA-8 scope: the result is always produced by the rule-based planner, so `mode` is
  * `rule-based`. The AI agent, `AI_ENABLED` handling and model fallback belong to WEA-9.
  */
@@ -106,7 +112,12 @@ export function createPlanHandler(deps: PlanHandlerDeps) {
     if (!parsed.ok) {
       return reject(400, 'invalid_criteria', { error: 'invalid_criteria', message: INVALID_MESSAGE, fields: parsed.fields });
     }
-    const { criteria } = parsed;
+    const thresholds = resolveThresholds(deps.thresholds, parsed.request.activity);
+    if (!thresholds) {
+      const unavailable: PlanResponse = { outcome: 'planning_unavailable', reason: 'thresholds_not_defined' };
+      return Response.json(unavailable, { headers: NO_STORE });
+    }
+    const criteria = { ...parsed.request, ...thresholds };
     const city = getCityById(criteria.cityId)!;
 
     let forecast = deps.cache.get(city.id);
@@ -144,4 +155,5 @@ export const defaultPlanHandler = createPlanHandler({
   fetchForecast: city => fetchForecast(city),
   log: entry => console.warn(JSON.stringify(entry)),
   now: Date.now,
+  thresholds: approvedThresholdPolicy,
 });

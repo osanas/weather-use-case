@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { getCityById } from '@/lib/cities';
-import { ACTIVITIES, type PlanCriteria } from './types';
+import { ACTIVITIES } from './types';
 
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -14,20 +14,10 @@ export function isCalendarDate(value: string): boolean {
 }
 
 /**
- * Fixed "comfortable to go out" limits applied to every hour of a window, for every
- * activity. Users do not choose them: the form has no threshold fields and the API rejects
- * them. Product choice (WEA-8): at most a 20 % chance of precipitation and 20 km/h of
- * sustained wind (a light to gentle breeze). Change them here only.
- */
-export const COMFORT_LIMITS = {
-  maxPrecipitationProbability: 20,
-  maxWindKmh: 20,
-} as const satisfies Pick<PlanCriteria, 'maxPrecipitationProbability' | 'maxWindKmh'>;
-
-/**
- * Static shape and range checks for the `POST /api/plan` body. The forecast horizon
- * depends on the city's current local day, so the planner checks it against the
- * provider's day boundaries.
+ * Static shape and range checks for the `POST /api/plan` body: the user-selected fields
+ * only. Thresholds come from the server policy (`thresholds.ts`), so a threshold field is
+ * an unknown field. The forecast horizon depends on the city's current local day, so the
+ * planner checks it against the provider's day boundaries.
  */
 export const planRequestSchema = z
   .object({
@@ -41,16 +31,13 @@ export const planRequestSchema = z
 export type PlanRequest = z.infer<typeof planRequestSchema>;
 
 export type ParseRequestResult =
-  | { ok: true; criteria: PlanCriteria }
+  | { ok: true; request: PlanRequest }
   | { ok: false; fields: string[] };
 
-/**
- * Validates untrusted planning input and applies {@link COMFORT_LIMITS}. Threshold fields
- * sent by a client are unknown fields. Errors list field names only, never input values.
- */
+/** Validates untrusted planning input. Errors list field names only, never input values. */
 export function parsePlanRequest(input: unknown): ParseRequestResult {
   const parsed = planRequestSchema.safeParse(input);
-  if (parsed.success) return { ok: true, criteria: { ...parsed.data, ...COMFORT_LIMITS } };
+  if (parsed.success) return { ok: true, request: parsed.data };
   const fields = new Set<string>();
   for (const issue of parsed.error.issues) {
     if (issue.code === 'unrecognized_keys') fields.add('unknown_field');

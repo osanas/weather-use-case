@@ -3,13 +3,12 @@
 import { useCallback, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import type { City } from '@/lib/cities';
 import { submitPlan } from '@/lib/planner/client';
-import { COMFORT_LIMITS } from '@/lib/planner/criteria';
-import { formatPercent, formatWind } from '@/lib/format';
+import type { PlanRequest } from '@/lib/planner/criteria';
 import {
   EMPTY_FORM, fieldMessage, FORM_FIELDS, planDateBounds, validatePlanForm,
   type FormField, type PlanFormErrors, type PlanFormValues,
 } from '@/lib/planner/form';
-import { ACTIVITIES, type PlanCriteria, type PlanResponse } from '@/lib/planner/types';
+import { ACTIVITIES, type PlanResponse } from '@/lib/planner/types';
 import { PlanResult } from './PlanResult';
 
 const ACTIVITY_LABELS: Record<(typeof ACTIVITIES)[number], string> = {
@@ -17,9 +16,9 @@ const ACTIVITY_LABELS: Record<(typeof ACTIVITIES)[number], string> = {
 };
 
 type Request =
-  | { status: 'loading'; cityId: string; criteria: PlanCriteria }
-  | { status: 'done'; cityId: string; criteria: PlanCriteria; data: PlanResponse }
-  | { status: 'error'; cityId: string; criteria: PlanCriteria; message: string };
+  | { status: 'loading'; cityId: string; request: PlanRequest }
+  | { status: 'done'; cityId: string; request: PlanRequest; data: PlanResponse }
+  | { status: 'error'; cityId: string; request: PlanRequest; message: string };
 
 // Minute-resolution clock for the date bounds. `null` while rendering on the server, so
 // the static page never bakes in a build-time date.
@@ -40,15 +39,16 @@ export function PlanningForm({ city, cityName }: { city: City; cityName: string 
   const now = useSyncExternalStore(subscribeMinute, minuteSnapshot, serverSnapshot);
   const bounds = now === null ? null : planDateBounds(now, city.timeZone);
 
-  const send = useCallback(async (criteria: PlanCriteria) => {
+  const send = useCallback(async (planRequest: PlanRequest) => {
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
-    setRequest({ status: 'loading', cityId: criteria.cityId, criteria });
-    const result = await submitPlan(criteria, controller.signal);
+    const { cityId } = planRequest;
+    setRequest({ status: 'loading', cityId, request: planRequest });
+    const result = await submitPlan(planRequest, controller.signal);
     if (controller.signal.aborted) return;
     if (result.ok) {
-      setRequest({ status: 'done', cityId: criteria.cityId, criteria, data: result.data });
+      setRequest({ status: 'done', cityId, request: planRequest, data: result.data });
     } else if (result.kind === 'invalid') {
       const serverErrors: PlanFormErrors = {};
       for (const field of result.fields) {
@@ -59,7 +59,7 @@ export function PlanningForm({ city, cityName }: { city: City; cityName: string 
       setErrors(Object.keys(serverErrors).length > 0 ? serverErrors : { form: result.message });
       setRequest(null);
     } else {
-      setRequest({ status: 'error', cityId: criteria.cityId, criteria, message: result.message });
+      setRequest({ status: 'error', cityId, request: planRequest, message: result.message });
     }
   }, [bounds]);
 
@@ -74,7 +74,7 @@ export function PlanningForm({ city, cityName }: { city: City; cityName: string 
       return;
     }
     setErrors({});
-    void send(validation.criteria);
+    void send(validation.request);
   };
 
   const update = (field: FormField) => (event: { target: { value: string } }) =>
@@ -100,10 +100,9 @@ export function PlanningForm({ city, cityName }: { city: City; cityName: string 
   return (
     <section className="card planner" aria-labelledby="planner-heading">
       <h2 id="planner-heading">Plan an activity</h2>
-      <p className="note" id="planner-limits">
-        Find the most comfortable time in {cityName}. Every hour must have at most a{' '}
-        {formatPercent(COMFORT_LIMITS.maxPrecipitationProbability)} chance of precipitation and{' '}
-        {formatWind(COMFORT_LIMITS.maxWindKmh)} of sustained wind.
+      <p className="note">
+        Find the best time in {cityName}. Precipitation and wind limits are set by the app and shown
+        with the result.
       </p>
       <form noValidate onSubmit={onSubmit}>
         {errors.cityId || errors.form
@@ -134,7 +133,7 @@ export function PlanningForm({ city, cityName }: { city: City; cityName: string 
         state={current}
         city={city}
         cityName={cityName}
-        onRetry={() => { if (current) void send(current.criteria); }}
+        onRetry={() => { if (current) void send(current.request); }}
       />
     </section>
   );

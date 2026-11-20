@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COMFORT_LIMITS, isCalendarDate, parsePlanRequest } from './criteria';
+import { isCalendarDate, parsePlanRequest } from './criteria';
 
 const valid = {
   cityId: 'laval-qc',
@@ -9,14 +9,11 @@ const valid = {
 };
 
 describe('parsePlanRequest', () => {
-  it('accepts the four browser contract fields and applies the fixed comfort limits', () => {
-    expect(parsePlanRequest(valid)).toEqual({
-      ok: true, criteria: { ...valid, maxPrecipitationProbability: 20, maxWindKmh: 20 },
-    });
-    expect(COMFORT_LIMITS).toEqual({ maxPrecipitationProbability: 20, maxWindKmh: 20 });
+  it('accepts the four user-selected fields and returns them without thresholds', () => {
+    expect(parsePlanRequest(valid)).toEqual({ ok: true, request: valid });
   });
 
-  it('rejects thresholds sent by the client, so users cannot loosen the limits', () => {
+  it('rejects thresholds sent by the client, so the server policy cannot be overridden', () => {
     expect(parsePlanRequest({ ...valid, maxWindKmh: 100 })).toEqual({ ok: false, fields: ['unknown_field'] });
     expect(parsePlanRequest({ ...valid, maxPrecipitationProbability: 100 }))
       .toEqual({ ok: false, fields: ['unknown_field'] });

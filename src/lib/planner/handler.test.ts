@@ -5,7 +5,10 @@ import { ProviderError } from '@/lib/weather/open-meteo';
 import { syntheticForecast } from '@/lib/weather/test-fixtures';
 import type { HourlyPoint, LocalDay, ProviderForecast } from '@/lib/weather/types';
 import { createPlanHandler, MAX_PLAN_BODY_BYTES, type PlanLogEntry } from './handler';
+import * as plannerModule from './planner';
 import { addCalendarDays, hourStartsOfDay } from './planner';
+import type { ThresholdPolicy } from './thresholds';
+import type { Activity, Thresholds } from './types';
 
 // Synthetic data only. Laval, EDT (UTC-4); provider midnights at 04:00Z.
 const NOW = Date.parse('2027-06-14T12:00:00Z');
@@ -31,16 +34,26 @@ function providerForecast(
   return { ...syntheticForecast({ fetchedAt, hourly }), localDays: days };
 }
 
-/** Request body: the four browser fields. */
+/** Request body: the four user-selected fields. */
 const criteria = { cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', durationHours: 2 };
-/** Criteria the planner used: the request plus the fixed comfort limits. */
-const applied = { ...criteria, maxPrecipitationProbability: 20, maxWindKmh: 20 };
 
-function setup(fetchForecast: (city: City) => Promise<ProviderForecast> = async () => providerForecast()) {
+// Synthetic thresholds injected for tests only. They are NOT approved defaults; WEA-12
+// defines those. Deliberately unusual values so they are not mistaken for policy.
+const SYNTHETIC: Thresholds = { maxPrecipitationProbability: 35, maxWindKmh: 28 };
+const syntheticPolicy: ThresholdPolicy = () => SYNTHETIC;
+/** Criteria the planner used: the request plus the resolved synthetic thresholds. */
+const applied = { ...criteria, ...SYNTHETIC };
+
+function setup(
+  fetchForecast: (city: City) => Promise<ProviderForecast> = async () => providerForecast(),
+  thresholds: ThresholdPolicy = syntheticPolicy,
+) {
   const logs: PlanLogEntry[] = [];
   const fetchSpy = vi.fn(fetchForecast);
   const cache = createForecastCache({ now: () => NOW });
-  const handler = createPlanHandler({ cache, fetchForecast: fetchSpy, log: e => logs.push(e), now: () => NOW });
+  const handler = createPlanHandler({
+    cache, fetchForecast: fetchSpy, log: e => logs.push(e), now: () => NOW, thresholds,
+  });
   const post = (body: BodyInit | null, headers: Record<string, string> = { 'Content-Type': 'application/json' }) =>
     handler(new Request('http://localhost/api/plan', {
       method: 'POST', body, headers: { 'X-Forwarded-For': '203.0.113.7', ...headers },
@@ -67,13 +80,67 @@ describe('POST /api/plan', () => {
     expect(fetchSpy.mock.calls[0]![0].id).toBe('laval-qc');
   });
 
-  it('applies the comfort limits inclusively: 20 % and 20 km/h pass, 21 km/h fails', async () => {
+  it('applies the resolved thresholds inclusively: 35 % and 28 km/h pass, 29 km/h fails', async () => {
     const at = (iso: string) => Date.parse(iso);
     const { postJson } = setup(async () => providerForecast(t =>
-      t === at('2027-06-14T15:00:00Z') || t === at('2027-06-14T16:00:00Z') ? [20, 20]
-        : t === at('2027-06-14T18:00:00Z') ? [0, 21] : [80, 40]));
+      t === at('2027-06-14T15:00:00Z') || t === at('2027-06-14T16:00:00Z') ? [35, 28]
+        : t === at('2027-06-14T18:00:00Z') ? [0, 29] : [80, 40]));
     expect(await (await postJson(criteria)).json()).toMatchObject({
-      outcome: 'match', start: '2027-06-14T15:00:00.000Z', maxPrecipitationProbability: 20, maxWindKmh: 20,
+      outcome: 'match', start: '2027-06-14T15:00:00.000Z', maxPrecipitationProbability: 35, maxWindKmh: 28,
+    });
+  });
+
+  describe('threshold policy', () => {
+    it('returns planning_unavailable with the default policy, before any forecast fetch', async () => {
+      const { postJson, fetchSpy, logs } = setup(undefined, () => null);
+      const res = await postJson(criteria);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('Cache-Control')).toBe('no-store');
+      expect(await res.json()).toEqual({ outcome: 'planning_unavailable', reason: 'thresholds_not_defined' });
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(logs).toEqual([]);
+    });
+
+    it('ships with no approved thresholds until WEA-12 defines them', async () => {
+      const { approvedThresholdPolicy } = await import('./thresholds');
+      for (const activity of ['hiking', 'cycling', 'walking'] as const) {
+        expect(approvedThresholdPolicy(activity)).toBeNull();
+      }
+    });
+
+    it('still validates the request before reporting planning_unavailable', async () => {
+      const { postJson } = setup(undefined, () => null);
+      expect((await postJson({ ...criteria, durationHours: 9 })).status).toBe(400);
+      expect((await postJson({ ...criteria, maxWindKmh: 50 })).status).toBe(400);
+    });
+
+    it('passes the resolved thresholds for the requested activity to the planner', async () => {
+      const byActivity: Record<Activity, Thresholds> = {
+        hiking: { maxPrecipitationProbability: 11, maxWindKmh: 22 },
+        cycling: { maxPrecipitationProbability: 13, maxWindKmh: 14 },
+        walking: { maxPrecipitationProbability: 37, maxWindKmh: 33 },
+      };
+      const policy = vi.fn<ThresholdPolicy>(activity => byActivity[activity]);
+      const plan = vi.spyOn(plannerModule, 'planActivityWindow');
+      const { postJson } = setup(undefined, policy);
+      for (const activity of ['hiking', 'cycling', 'walking'] as const) {
+        const res = await postJson({ ...criteria, activity });
+        expect((await res.json()).criteria).toEqual({ ...criteria, activity, ...byActivity[activity] });
+        expect(plan).toHaveBeenLastCalledWith(
+          expect.anything(), { ...criteria, activity, ...byActivity[activity] }, NOW);
+      }
+      expect(policy.mock.calls.map(c => c[0])).toEqual(['hiking', 'cycling', 'walking']);
+      plan.mockRestore();
+    });
+
+    it.each([
+      ['a NaN wind limit', { maxPrecipitationProbability: 20, maxWindKmh: Number.NaN }],
+      ['a precipitation limit over 100 %', { maxPrecipitationProbability: 120, maxWindKmh: 20 }],
+      ['a negative wind limit', { maxPrecipitationProbability: 20, maxWindKmh: -1 }],
+    ])('treats a policy returning %s as undefined', async (_name, thresholds) => {
+      const { postJson, fetchSpy } = setup(undefined, () => thresholds);
+      expect(await (await postJson(criteria)).json()).toMatchObject({ outcome: 'planning_unavailable' });
+      expect(fetchSpy).not.toHaveBeenCalled();
     });
   });
 
