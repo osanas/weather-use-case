@@ -42,3 +42,16 @@ export type PlanResult =
   | { outcome: 'no_match'; criteria: PlanCriteria }
   | { outcome: 'insufficient'; reason: 'stale' | 'missing_data'; criteria: PlanCriteria }
   | { outcome: 'outside_horizon'; criteria: PlanCriteria };
+
+/** How the recommendation was produced. WEA-9 adds the `agent` path. */
+export type PlanMode = 'agent' | 'rule-based';
+
+/** Response body of a successful `POST /api/plan` (HTTP 200). */
+export type PlanResponse = Exclude<PlanResult, { outcome: 'outside_horizon' }> & { mode: PlanMode };
+
+/** Error body of `POST /api/plan`. `fields` names invalid criteria, never their values. */
+export type PlanErrorBody = {
+  error: 'invalid_criteria' | 'payload_too_large' | 'unsupported_media_type' | 'weather_unavailable';
+  message: string;
+  fields?: string[];
+};

@@ -65,8 +65,14 @@ export function createWeatherHandler(deps: WeatherHandlerDeps) {
   };
 }
 
+/**
+ * One validated-forecast cache per server instance, shared by `/api/weather` and
+ * `/api/plan` so both routes see the same five-minute forecast for a city.
+ */
+export const sharedForecastCache: ForecastCache = createForecastCache();
+
 export const defaultWeatherHandler = createWeatherHandler({
-  cache: createForecastCache(),
+  cache: sharedForecastCache,
   fetchForecast: city => fetchForecast(city),
   log: entry => console.warn(JSON.stringify(entry)),
   now: Date.now,

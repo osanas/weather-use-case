@@ -10,7 +10,7 @@ export default function HomePage() {
     <main>
       <header>
         <h1>Weather Window</h1>
-        <p>Current conditions, hourly and five-day forecasts for Canadian cities.</p>
+        <p>Current conditions, hourly and five-day forecasts for Canadian cities, and the best time for an outdoor activity.</p>
       </header>
       <WeatherApp cities={CITIES} defaultCityId={DEFAULT_CITY_ID} />
       <footer>

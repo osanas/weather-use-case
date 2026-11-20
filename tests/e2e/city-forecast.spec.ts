@@ -36,6 +36,8 @@ const currentRegion = (page: Page, name: string) =>
 const firstBodyRow = (page: Page, table: string) =>
   page.getByRole('table', { name: table }).getByRole('row').nth(1);
 
+const cityOptions = (page: Page) => page.locator('.city-selector').getByRole('option');
+
 async function selectCity(page: Page, query: string, option: RegExp) {
   await page.getByRole('combobox', { name: 'City' }).fill(query);
   await page.getByRole('option', { name: option }).click();
@@ -52,7 +54,8 @@ test('selects a city with the keyboard only, without requests while typing', asy
   await expect(combobox).toBeFocused();
   await page.keyboard.type('mont');
   await expect(combobox).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.getByRole('option')).toHaveText(['Montréal, Québec']);
+  // Scoped to the city selector: the planning form's Activity select also has options.
+  await expect(cityOptions(page)).toHaveText(['Montréal, Québec']);
   expect(requested).toEqual(['laval-qc']);
 
   await page.keyboard.press('ArrowDown');
@@ -74,7 +77,7 @@ test('shows no results and Escape restores the selected city', async ({ page }) 
   const combobox = page.getByRole('combobox', { name: 'City' });
   await combobox.fill('zzz');
   await expect(page.getByText('No matching cities')).toBeVisible();
-  await expect(page.getByRole('option')).toHaveCount(0);
+  await expect(cityOptions(page)).toHaveCount(0);
   await combobox.press('Escape');
   await expect(combobox).toHaveValue('Laval, Québec');
   await expect(page.getByText('No matching cities')).toHaveCount(0);
