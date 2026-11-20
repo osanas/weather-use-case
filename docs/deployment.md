@@ -85,17 +85,17 @@ Fill this table for the release commit. Keep credentials and identifying log exc
 |---|---|---|---|
 | 1 | Verify passes on the release commit | GitHub Actions run for the merge commit | _pending_ |
 | 2 | Production URL and deployed SHA | Vercel deployment details; record in README | _pending_ |
-| 3 | Function region | Vercel project settings and a function response | _pending_ |
+| 3 | Function region | Vercel project settings and a function response | Observed 2026-11-20: `x-vercel-id` on `/api/weather` is `yul1::iad1::…`, so the edge is Montréal but functions run in `iad1` (Washington, US). Set the region to `yul1` or state `iad1` in the privacy notice |
 | 4 | Environment variables | `AI_ENABLED`, `GROQ_API_KEY`, `GROQ_MODEL` set for Production only; Preview keyless with `AI_ENABLED=false` | _pending_ |
 | 5 | Rate limit on `/api/plan` | Vercel Firewall rule (start at 5 requests per minute per source); send a short burst from a controlled source, confirm limiting and recovery | _pending_ |
-| 6 | Signed-out desktop and mobile test | Private window on desktop and a phone: search, forecast, planning, keyboard navigation | _pending_ |
-| 7 | AI path | Planning result labelled AI-assisted with the production key | _pending_ |
+| 6 | Signed-out desktop and mobile test | Private window on desktop and a phone: search, forecast, planning, keyboard navigation | Partial 2026-11-20, signed-out browser at 1280 px and 375 px: keyboard city search (Vancouver), forecast, planning with the guide, no horizontal scroll on mobile. Phone test still to do |
+| 7 | AI path | Planning result labelled AI-assisted with the production key | Failed 2026-11-20: Production-only variables set and redeployed with `GROQ_MODEL=openai/gpt-oss-20b`, but synthetic Laval requests still return rule-based in about 0.3 s. Next: read the `route: plan` function log outcome (none means `AI_ENABLED` is not exactly `true`) |
 | 8 | AI failure | Preview with an invalid key or `AI_ENABLED=false`: same result labelled rule-based, forecast still works | _pending_ |
 | 9 | Weather failure | Covered by CI (provider failure tests); on a preview, confirm the retryable error state | _pending_ |
-| 10 | Security headers | `curl -sI <url>` and `curl -sI <url>/api/weather?cityId=laval-qc`: CSP `frame-ancestors 'none'`, `X-Frame-Options`, `nosniff`, referrer and permissions policies, HSTS | _pending_ |
+| 10 | Security headers | `curl -sI <url>` and `curl -sI <url>/api/weather?cityId=laval-qc`: CSP `frame-ancestors 'none'`, `X-Frame-Options`, `nosniff`, referrer and permissions policies, HSTS | Passed 2026-11-20 on `/`, `/privacy` and `/api/weather`: CSP `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, referrer and permissions policies, HSTS, COOP; no `X-Powered-By`; `/api/weather` is `no-store`; a text `POST /api/plan` returns 415 |
 | 11 | Keys stay server-side | CI client-bundle check on the release commit; Gitleaks passes; no key in function logs | _pending_ |
 | 12 | Logs | Vercel function logs show only `route`, `status`, `outcome`, `elapsedMs` entries | _pending_ |
-| 13 | Privacy notice | `/privacy` matches operator, contact, region and Groq retention; `npm run check:release` passes | _pending_ |
+| 13 | Privacy notice | `/privacy` matches operator, contact, region and Groq retention; `npm run check:release` passes | Failed 2026-11-20: the live `/privacy` still shows the `[TO COMPLETE …]` placeholders |
 | 14 | ZAP baseline | Run `zap-baseline.yml` against the production URL; review findings | _pending_ |
 
 ## Rollback and incidents
