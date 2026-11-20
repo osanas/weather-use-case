@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Validate target URL
         env:
-          ZAP_TARGET_URL: ${{ inputs.target_url || vars.ZAP_TARGET_URL }}
+          ZAP_TARGET_URL: ${{ inputs.target_url || secrets.ZAP_TARGET_URL }}
         run: |
           if [ -z "$ZAP_TARGET_URL" ]; then
             echo "Set the repository variable ZAP_TARGET_URL or provide target_url when starting this workflow."
@@ -39,6 +39,6 @@ jobs:
       - name: Run ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.15.0
         with:
-          target: ${{ inputs.target_url || vars.ZAP_TARGET_URL }}
+          target: ${{ inputs.target_url || secrets.ZAP_TARGET_URL }}
           allow_issue_writing: false
           fail_action: false
