@@ -12,6 +12,17 @@ Import the Git repository into Vercel as a Next.js project. Use `main` as the pr
 | `GROQ_API_KEY` | Server-only credential. Use a separate key per environment that calls the model. Keep disabled previews keyless. |
 | `GROQ_MODEL` | A specific Groq model identifier verified to support local tool calling. Record the tested identifier in the release record. |
 
+### Where to set each value
+
+| Variable | Local | Vercel Preview | Vercel Production | GitHub |
+|---|---|---|---|---|
+| `AI_ENABLED` | `.env.local` | `false` by default | `true` after validation | `false` in CI |
+| `GROQ_API_KEY` | `.env.local` | Only for an AI-enabled preview, with its own key | Production key | Never |
+| `GROQ_MODEL` | `.env.local` | With the key | Tested model id | Never |
+| `ZAP_TARGET_URL` | — | — | — | Repository secret read by the ZAP baseline workflow |
+
+Locally, copy `.env.example` to `.env.local` and fill in the values. In Vercel, add them under **Project → Settings → Environment Variables**, choose the environment, then redeploy: changes apply to new deployments only. In GitHub, add `ZAP_TARGET_URL` under **Settings → Secrets and variables → Actions**. CI needs no secret.
+
 Commit an `.env.example` with placeholders and ignore local secret files. Keep secrets out of builds, client variables, CI logs and fixture files. Environment changes apply to new Vercel deployments. Revoke and replace any exposed key, even if the commit is later removed. Configure service quota or usage limits and verify how they behave before enabling AI.
 
 Target Montréal (`yul1`) for Vercel Functions if available on the selected configuration. Verify the actual function region and document it. Evaluate CDN ingress, firewall, logs, subprocessors, support access and AI processing separately. Montréal compute alone establishes only the configured compute location.
