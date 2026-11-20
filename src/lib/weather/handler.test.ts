@@ -1,14 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getCityById, type City } from '@/lib/cities';
 import { createForecastCache, FORECAST_TTL_MS } from './cache';
-import { createWeatherHandler, type WeatherLogEntry } from './handler';
+import { createWeatherHandler, toPublicForecast, type WeatherLogEntry } from './handler';
 import { ProviderError } from './open-meteo';
-import { syntheticForecast } from './test-fixtures';
-import type { WeatherResponse } from './types';
+import { syntheticProviderForecast } from './test-fixtures';
+import type { ProviderForecast } from './types';
 
-const forecast: WeatherResponse = syntheticForecast();
+const forecast: ProviderForecast = syntheticProviderForecast();
+const publicForecast = toPublicForecast(forecast);
 
-function setup(fetchForecast: (city: City) => Promise<WeatherResponse>) {
+function setup(fetchForecast: (city: City) => Promise<ProviderForecast>) {
   let t = 1_000;
   const clock = { now: () => t, advance: (ms: number) => { t += ms; } };
   const logs: WeatherLogEntry[] = [];
@@ -32,9 +33,18 @@ describe('GET /api/weather', () => {
     const res = await get('?cityId=laval-qc');
     expect(res.status).toBe(200);
     expect(res.headers.get('Cache-Control')).toBe('no-store');
-    expect(await res.json()).toEqual(forecast);
+    expect(await res.json()).toEqual(publicForecast);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(fetchSpy.mock.calls[0]![0].id).toBe('laval-qc');
+  });
+
+  it('keeps the server-only local-day boundaries out of the public response', async () => {
+    const { get } = setup(async () => forecast);
+    const body = await (await get('?cityId=laval-qc')).json();
+    expect(body).not.toHaveProperty('localDays');
+    expect(Object.keys(body).sort()).toEqual(['cityId', 'current', 'daily', 'fetchedAt', 'hourly', 'timezone']);
+    const cached = await (await get('?cityId=laval-qc')).json();
+    expect(cached).not.toHaveProperty('localDays');
   });
 
   it.each(['', '?cityId=', '?cityId=unknown', '?cityId=LAVAL-QC'])(
@@ -76,7 +86,7 @@ describe('GET /api/weather', () => {
     await get('?cityId=laval-qc');
     clock.advance(FORECAST_TTL_MS - 1);
     const res = await get('?cityId=laval-qc');
-    expect(await res.json()).toEqual(forecast);
+    expect(await res.json()).toEqual(publicForecast);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -90,7 +100,7 @@ describe('GET /api/weather', () => {
 
   it('does not cache provider failures', async () => {
     const fetchForecast = vi
-      .fn<(city: City) => Promise<WeatherResponse>>()
+      .fn<(city: City) => Promise<ProviderForecast>>()
       .mockRejectedValueOnce(new ProviderError('http_error'))
       .mockResolvedValueOnce(forecast);
     const { get, fetchSpy } = setup(fetchForecast);
@@ -110,7 +120,7 @@ describe('GET /api/weather', () => {
   });
 
   it('caches each catalogue city separately', async () => {
-    const { get, fetchSpy } = setup(async city => syntheticForecast({ cityId: city.id, timezone: city.timeZone }));
+    const { get, fetchSpy } = setup(async city => syntheticProviderForecast({ cityId: city.id, timezone: city.timeZone }));
     const laval = await (await get('?cityId=laval-qc')).json();
     const vancouver = await (await get('?cityId=vancouver-bc')).json();
     await get('?cityId=vancouver-bc');
@@ -128,7 +138,7 @@ describe('GET /api/weather', () => {
 
   it('does not cache invalid provider payloads', async () => {
     const fetchForecast = vi
-      .fn<(city: City) => Promise<WeatherResponse>>()
+      .fn<(city: City) => Promise<ProviderForecast>>()
       .mockRejectedValueOnce(new ProviderError('invalid_response'))
       .mockResolvedValueOnce(forecast);
     const { get, fetchSpy } = setup(fetchForecast);

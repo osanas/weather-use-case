@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createForecastCache, FORECAST_TTL_MS } from './cache';
-import { syntheticForecast } from './test-fixtures';
+import { syntheticProviderForecast } from './test-fixtures';
 
-const forecast = (cityId: string) => syntheticForecast({ cityId });
+const forecast = (cityId: string) => syntheticProviderForecast({ cityId });
 
 function fakeClock(start = 0) {
   let t = start;

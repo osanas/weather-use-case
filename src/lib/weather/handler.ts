@@ -1,7 +1,7 @@
 import { getCityById, type City } from '@/lib/cities';
 import { createForecastCache, type ForecastCache } from './cache';
 import { fetchForecast, ProviderError, type ProviderOutcome } from './open-meteo';
-import type { WeatherErrorBody, WeatherResponse } from './types';
+import type { ProviderForecast, WeatherErrorBody, WeatherResponse } from './types';
 
 /** Only these fields may be logged. No URLs, headers, IPs or bodies. */
 export type WeatherLogEntry = {
@@ -14,12 +14,18 @@ export type WeatherLogEntry = {
 
 export type WeatherHandlerDeps = {
   cache: ForecastCache;
-  fetchForecast: (city: City) => Promise<WeatherResponse>;
+  fetchForecast: (city: City) => Promise<ProviderForecast>;
   log: (entry: WeatherLogEntry) => void;
   now: () => number;
 };
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
+
+/** The public response omits the server-only local-day boundaries. */
+export function toPublicForecast({ localDays, ...body }: ProviderForecast): WeatherResponse {
+  void localDays;
+  return body;
+}
 
 function errorResponse(status: number, body: WeatherErrorBody): Response {
   return Response.json(body, { status, headers: NO_STORE });
@@ -39,12 +45,12 @@ export function createWeatherHandler(deps: WeatherHandlerDeps) {
     }
 
     const cached = deps.cache.get(city.id);
-    if (cached) return Response.json(cached, { headers: NO_STORE });
+    if (cached) return Response.json(toPublicForecast(cached), { headers: NO_STORE });
 
     try {
       const forecast = await deps.fetchForecast(city);
       deps.cache.set(city.id, forecast);
-      return Response.json(forecast, { headers: NO_STORE });
+      return Response.json(toPublicForecast(forecast), { headers: NO_STORE });
     } catch (error) {
       deps.log({
         route: 'weather', status: '5xx', provider: 'open-meteo',

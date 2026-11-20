@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getCityById, type City } from '@/lib/cities';
-import { buildForecastUrl, fetchForecast, localDateFromMidnight, ProviderError } from './open-meteo';
+import {
+  buildForecastUrl, fetchForecast, localDateFromMidnight, localDaysFromMidnights, ProviderError,
+} from './open-meteo';
 
 const laval = getCityById('laval-qc')!;
 const vancouver = getCityById('vancouver-bc')!;
@@ -67,7 +69,8 @@ describe('buildForecastUrl', () => {
       current: 'temperature_2m,wind_speed_10m,weather_code',
       hourly: 'temperature_2m,precipitation_probability,wind_speed_10m,weather_code',
       daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
-      forecast_days: '7',
+      // One extra day: its local midnight closes the seventh public day.
+      forecast_days: '8',
       temperature_unit: 'celsius',
       wind_speed_unit: 'kmh',
       timeformat: 'unixtime',
@@ -102,7 +105,87 @@ describe('localDateFromMidnight', () => {
   });
 });
 
+/** Full synthetic payload: hourly points cover every hour between the first and last midnight. */
+function fullProviderBody(midnightsIso: string[], utcOffsetSeconds: number) {
+  const midnights = midnightsIso.map(epoch);
+  const first = midnights[0]!;
+  const last = midnights[midnights.length - 1]!;
+  const time = Array.from({ length: (last - first) / 3600 }, (_, i) => first + i * 3600);
+  const fill = time.map(() => 5);
+  return {
+    ...providerBody(midnightsIso, utcOffsetSeconds),
+    hourly: { time, temperature_2m: fill, precipitation_probability: fill, wind_speed_10m: fill, weather_code: fill },
+  };
+}
+
+/** `count` consecutive local midnights `stepHours` apart (no DST change in between). */
+const midnightsEvery = (firstIso: string, count: number, stepHours = 24) =>
+  Array.from({ length: count }, (_, i) => new Date(Date.parse(firstIso) + i * stepHours * 3_600_000).toISOString());
+
+describe('localDaysFromMidnights', () => {
+  it('uses consecutive provider midnights as day bounds, so DST days last 23 or 25 hours', () => {
+    // America/Toronto: spring forward on 2027-03-14, fall back on 2027-11-07.
+    const spring = localDaysFromMidnights(
+      ['2027-03-14T05:00:00Z', '2027-03-15T04:00:00Z'].map(epoch), -5 * 3600);
+    expect(spring).toEqual([
+      { date: '2027-03-14', startsAt: '2027-03-14T05:00:00.000Z', endsAt: '2027-03-15T04:00:00.000Z' },
+    ]);
+    const fall = localDaysFromMidnights(
+      ['2027-11-07T04:00:00Z', '2027-11-08T05:00:00Z'].map(epoch), -4 * 3600);
+    expect(fall).toEqual([
+      { date: '2027-11-07', startsAt: '2027-11-07T04:00:00.000Z', endsAt: '2027-11-08T05:00:00.000Z' },
+    ]);
+  });
+
+  it('lists no day whose end is unknown', () => {
+    expect(localDaysFromMidnights([epoch('2027-06-14T04:00:00Z')], -4 * 3600)).toEqual([]);
+  });
+});
+
 describe('fetchForecast', () => {
+  it('keeps the public seven-day horizon and closes day seven with the extra midnight', async () => {
+    const body = fullProviderBody(midnightsEvery('2027-06-14T04:00:00Z', 9), -4 * 3600);
+    // Eight days of hourly data are returned; one more midnight is beyond them.
+    const result = await run(body);
+    expect(result.daily).toHaveLength(7);
+    expect(result.hourly).toHaveLength(168);
+    expect(result.hourly.at(-1)?.time).toBe('2027-06-21T03:00:00.000Z');
+    expect(result.localDays).toHaveLength(7);
+    expect(result.localDays.at(-1)).toEqual({
+      date: '2027-06-20', startsAt: '2027-06-20T04:00:00.000Z', endsAt: '2027-06-21T04:00:00.000Z',
+    });
+  });
+
+  it('follows provider local midnights in Vancouver after BC moved to UTC-7 year-round', async () => {
+    // Synthetic November 2026 payload: the provider applies UTC-7, while Node 24.12's
+    // tz 2025b would still apply PST (UTC-8) and place 07:00Z on the previous date.
+    const body = fullProviderBody(midnightsEvery('2026-11-19T07:00:00Z', 8), -7 * 3600);
+    const result = await fetchForecast(vancouver, {
+      fetchImpl: async () => jsonResponse(body), now: () => Date.parse('2026-11-19T18:00:00Z'),
+    });
+    expect(result.localDays.find(d => d.date === '2026-11-20')).toEqual({
+      date: '2026-11-20', startsAt: '2026-11-20T07:00:00.000Z', endsAt: '2026-11-21T07:00:00.000Z',
+    });
+    expect(result.daily.map(d => d.date)[1]).toBe('2026-11-20');
+  });
+
+  it('works for a zone outside the catalogue without zone-specific code', async () => {
+    // Synthetic city; the catalogue is unchanged. Australia/Sydney falls back on
+    // 2027-04-04 (AEDT UTC+11 to AEST UTC+10), a southern-hemisphere 25-hour day.
+    const sydney: City = {
+      id: 'synthetic-sydney', label: 'Synthetic Sydney', province: 'NSW',
+      latitude: -33.8688, longitude: 151.2093, timeZone: 'Australia/Sydney',
+    };
+    const body = fullProviderBody(
+      ['2027-04-02T13:00:00Z', '2027-04-03T13:00:00Z', '2027-04-04T14:00:00Z'], 11 * 3600);
+    const result = await fetchForecast(sydney, { fetchImpl: async () => jsonResponse(body), now });
+    expect(buildForecastUrl(sydney).searchParams.get('timezone')).toBe('Australia/Sydney');
+    expect(result.localDays).toEqual([
+      { date: '2027-04-03', startsAt: '2027-04-02T13:00:00.000Z', endsAt: '2027-04-03T13:00:00.000Z' },
+      { date: '2027-04-04', startsAt: '2027-04-03T13:00:00.000Z', endsAt: '2027-04-04T14:00:00.000Z' },
+    ]);
+  });
+
   it('normalizes current, hourly and daily data to UTC instants and local dates', async () => {
     expect(await run(providerBody())).toEqual({
       cityId: 'laval-qc',
@@ -116,6 +199,10 @@ describe('fetchForecast', () => {
       daily: [
         { date: '2027-06-14', minC: null, maxC: 22, precipitationProbability: 40, weatherCode: 3 },
         { date: '2027-06-15', minC: 11, maxC: 22, precipitationProbability: 40, weatherCode: 3 },
+      ],
+      // Only the first day has a known end (the next local midnight).
+      localDays: [
+        { date: '2027-06-14', startsAt: '2027-06-14T04:00:00.000Z', endsAt: '2027-06-15T04:00:00.000Z' },
       ],
     });
   });
