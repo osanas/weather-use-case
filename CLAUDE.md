@@ -10,6 +10,17 @@ Read [the product specification](docs/product-spec.md) and [the deployment speci
 - Report exact checks run, their outcomes and any remaining manual verification. GitHub CI and the maintainer verify release readiness. Leave pushing, merging, credential changes and production releases to the maintainer unless explicitly authorized.
 - If several people or sessions work concurrently, agree shared contracts first and use independent branches or worktrees with separate test data.
 
+## Git workflow
+
+- Before editing files or committing, run `git status -sb` and `git branch --show-current`.
+- Never commit directly on `main`.
+- If the task has a ticket, create or switch to its feature branch first
+  (for example, `feat/WEA-13-planning-guide`).
+- Create feature branches without tracking `origin/main` (`git switch -c <branch> --no-track origin/main`), and check that `git status -sb` never shows `...origin/main` on a feature branch. A feature branch that tracks `origin/main` pushes its commits straight to `main`.
+- Before every commit, verify that the current branch is not `main`.
+- Do not push or merge unless explicitly asked.
+- If the working tree contains changes from another task, stop and report them; do not move or commit them.
+
 ## Implementation boundaries
 
 - Keep provider calls and credentials server-side. Never read, print, commit or request real secrets in AI sessions. Use placeholders and synthetic fixtures. Keep user data, private provider logs and confidential assessment evidence out of prompts, tests and Git history.
