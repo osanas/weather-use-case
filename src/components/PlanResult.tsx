@@ -91,6 +91,14 @@ function Content({ state, city, cityName, onRetry }: {
           <dt>Highest precipitation probability</dt><dd>{formatPercent(data.maxPrecipitationProbability)}</dd>
           <dt>Highest sustained wind</dt><dd>{formatWind(data.maxWindKmh)}</dd>
         </dl>
+        <p className="explanation">
+          {/* Server-owned template filled from planner values; model text is never rendered. */}
+          Every hour stays within the {criteria.activity} limits of{' '}
+          {formatPercent(criteria.maxPrecipitationProbability)} precipitation chance and{' '}
+          {formatWind(criteria.maxWindKmh)} wind. Among the eligible {criteria.durationHours}-hour periods,
+          this one has the lowest precipitation chance ({formatPercent(data.maxPrecipitationProbability)}),
+          then the lightest wind ({formatWind(data.maxWindKmh)}), then the earliest start.
+        </p>
         <Constraints criteria={criteria} />
         <p className="note">
           Based on the Open-Meteo forecast for {cityName}. Forecast conditions can change, so check again

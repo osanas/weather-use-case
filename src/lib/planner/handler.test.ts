@@ -52,7 +52,7 @@ function setup(
   const fetchSpy = vi.fn(fetchForecast);
   const cache = createForecastCache({ now: () => NOW });
   const handler = createPlanHandler({
-    cache, fetchForecast: fetchSpy, log: e => logs.push(e), now: () => NOW, thresholds,
+    cache, fetchForecast: fetchSpy, log: e => logs.push(e), now: () => NOW, thresholds, model: null,
   });
   const post = (body: BodyInit | null, headers: Record<string, string> = { 'Content-Type': 'application/json' }) =>
     handler(new Request('http://localhost/api/plan', {

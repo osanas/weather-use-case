@@ -1,4 +1,7 @@
-import { getCityById, type City } from '@/lib/cities';
+import { readAgentConfig } from '@/lib/agent/config';
+import { createGroqModel, type ChatModel } from '@/lib/agent/groq';
+import { runPlanningAgent, type AgentFailure } from '@/lib/agent/orchestrator';
+import { cityDisplayName, getCityById, type City } from '@/lib/cities';
 import type { ForecastCache } from '@/lib/weather/cache';
 import { fetchForecast, ProviderError, type ProviderOutcome } from '@/lib/weather/open-meteo';
 import { sharedForecastCache } from '@/lib/weather/handler';
@@ -6,16 +9,21 @@ import type { ProviderForecast } from '@/lib/weather/types';
 import { parsePlanRequest } from './criteria';
 import { planActivityWindow } from './planner';
 import { approvedThresholdPolicy, resolveThresholds, type ThresholdPolicy } from './thresholds';
-import type { PlanErrorBody, PlanResponse } from './types';
+import type { PlanErrorBody, PlanResponse, PlanResult } from './types';
 
 /** Request bodies above this size are rejected before parsing (product spec: 2 KiB). */
 export const MAX_PLAN_BODY_BYTES = 2048;
 
-/** Only these fields may be logged. No bodies, criteria, headers or IPs. */
+/**
+ * Only these fields may be logged. No bodies, criteria, headers, IPs, model text or keys.
+ * `2xx` entries record an agent fallback: the response was still a rule-based result.
+ */
 export type PlanLogEntry = {
   route: 'plan';
-  status: '4xx' | '5xx';
-  outcome: 'unsupported_media_type' | 'payload_too_large' | 'invalid_criteria' | ProviderOutcome;
+  status: '2xx' | '4xx' | '5xx';
+  outcome:
+    | 'unsupported_media_type' | 'payload_too_large' | 'invalid_criteria' | ProviderOutcome
+    | AgentFailure | 'result_mismatch';
   elapsedMs: number;
 };
 
@@ -26,7 +34,14 @@ export type PlanHandlerDeps = {
   now: () => number;
   /** Server-owned thresholds per activity (WEA-12). */
   thresholds: ThresholdPolicy;
+  /** Chat model for the agent path, or `null` when AI is disabled (rule-based only). */
+  model: ChatModel | null;
+  /** Overall agent deadline; defaults to the product-spec eight seconds. */
+  agentDeadlineMs?: number;
 };
+
+/** The agent may only confirm the deterministic result; any difference means fallback. */
+const sameResult = (a: PlanResult, b: PlanResult) => JSON.stringify(a) === JSON.stringify(b);
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
@@ -73,8 +88,11 @@ const isJson = (contentType: string | null) =>
  * never from the request. If the policy yields no valid thresholds (a misconfiguration),
  * the response is `planning_unavailable` and no forecast is fetched.
  *
- * WEA-8 scope: the result is always produced by the rule-based planner, so `mode` is
- * `rule-based`. The AI agent, `AI_ENABLED` handling and model fallback belong to WEA-9.
+ * The deterministic planner always runs first and is the source of truth. When a model is
+ * configured, the bounded agent (WEA-9) may request the read-only tools; the response is
+ * labelled `agent` only if its `rank_windows` result equals the planner result. Any model
+ * timeout, quota error, invalid tool call or invalid output falls back to the same planner
+ * result labelled `rule-based`, so AI failures never break planning (AG-04).
  */
 export function createPlanHandler(deps: PlanHandlerDeps) {
   return async function POST(request: Request): Promise<Response> {
@@ -138,11 +156,27 @@ export function createPlanHandler(deps: PlanHandlerDeps) {
       }
     }
 
-    const result = planActivityWindow(forecast, criteria, deps.now());
+    const planNow = deps.now();
+    const result = planActivityWindow(forecast, criteria, planNow);
     if (result.outcome === 'outside_horizon') {
       // An out-of-horizon date is invalid input (HTTP 400), not a domain outcome.
       return reject(400, 'invalid_criteria', {
         error: 'invalid_criteria', message: 'Choose a date within the forecast period.', fields: ['date'],
+      });
+    }
+
+    if (deps.model) {
+      const run = await runPlanningAgent({
+        model: deps.model, forecast, criteria, cityName: cityDisplayName(city), now: planNow,
+        deadlineMs: deps.agentDeadlineMs,
+      });
+      if (run.ok && sameResult(run.result, result)) {
+        const agentBody: PlanResponse = { ...result, mode: 'agent' };
+        return Response.json(agentBody, { headers: NO_STORE });
+      }
+      deps.log({
+        route: 'plan', status: '2xx', outcome: run.ok ? 'result_mismatch' : run.reason,
+        elapsedMs: deps.now() - startedAt,
       });
     }
 
@@ -157,4 +191,9 @@ export const defaultPlanHandler = createPlanHandler({
   log: entry => console.warn(JSON.stringify(entry)),
   now: Date.now,
   thresholds: approvedThresholdPolicy,
+  // Server-only configuration: the key is read here and never logged or sent to the browser.
+  model: (() => {
+    const config = readAgentConfig(process.env);
+    return config ? createGroqModel(config) : null;
+  })(),
 });

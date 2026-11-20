@@ -66,6 +66,9 @@ test('shows the constraints used and forecast values for a successful Laval hiki
   const constraints = result(page).getByRole('definition');
   await expect(constraints).toContainText(['10%', '12 km/h', 'hiking', 'Mon, Jun 14 (2027-06-14)', '2 hours', '35%', '28 km/h']);
   await expect(result(page)).toContainText('Based on the Open-Meteo forecast for Laval, Québec');
+  // Explanation from the app's template, filled with the planner values.
+  await expect(result(page)).toContainText('Every hour stays within the hiking limits of 35% precipitation chance and 28 km/h wind.');
+  await expect(result(page)).toContainText('this one has the lowest precipitation chance (10%), then the lightest wind (12 km/h)');
 
   expect(requests).toHaveLength(1);
   expect(requests[0]!.headers()['content-type']).toBe('application/json');
