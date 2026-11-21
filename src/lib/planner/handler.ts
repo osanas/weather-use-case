@@ -1,4 +1,5 @@
 import { readAgentConfig } from '@/lib/agent/config';
+import { createGeminiModel } from '@/lib/agent/gemini';
 import { createGroqModel, type ChatModel } from '@/lib/agent/groq';
 import { runPlanningAgent, type AgentFailure } from '@/lib/agent/orchestrator';
 import { cityDisplayName, getCityById, type City } from '@/lib/cities';
@@ -194,6 +195,7 @@ export const defaultPlanHandler = createPlanHandler({
   // Server-only configuration: the key is read here and never logged or sent to the browser.
   model: (() => {
     const config = readAgentConfig(process.env);
-    return config ? createGroqModel(config) : null;
+    if (!config) return null;
+    return config.provider === 'gemini' ? createGeminiModel(config) : createGroqModel(config);
   })(),
 });

@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: 'What Weather Window processes, who receives it and for how long.',
 };
 
-const { operator, contact, functionRegion, groqRetention, lastReviewed } = PRIVACY_SETTINGS;
+const { operator, contact, functionRegion, aiProvider, aiRetention, lastReviewed } = PRIVACY_SETTINGS;
 
 export default function PrivacyPage() {
   return (
@@ -48,10 +48,10 @@ export default function PrivacyPage() {
             to return a forecast. It never receives your IP address or browser headers from the app.
           </li>
           <li>
-            <strong>Groq (only when AI assistance is enabled)</strong> receives the city name, activity, date,
+            <strong>{aiProvider} (only when AI assistance is enabled)</strong> receives the city name, activity, date,
             duration, the app&apos;s fixed weather limits and the public hourly forecast for that day. It never
-            receives your IP address, browser headers or any identifier. Groq data retention for this
-            deployment: {groqRetention}.
+            receives your IP address, browser headers or any identifier. {aiProvider} data retention for this
+            deployment: {aiRetention}.
           </li>
         </ul>
       </section>
