@@ -26,7 +26,7 @@ flowchart LR
     E --> A["Next.js server routes"]
     A --> W["Forecast service"]
     A --> O["Agent orchestrator"]
-    O -->|"Bounded tool requests"| G["Groq model"]
+    O -->|"Bounded tool requests"| G["Gemini or Groq model"]
     O -->|"Read forecast"| W
     O -->|"Rank windows"| P["Deterministic planner"]
     W -->|"Public city coordinates"| M["Open-Meteo"]
@@ -49,15 +49,18 @@ Open [localhost:3000](http://localhost:3000). The app runs with the rule-based p
 
 ### Configure the AI agent
 
-The Groq agent is optional. It runs only when all three values are set; otherwise the app stays rule-based.
+The agent is optional and uses one provider: Google Gemini or Groq. It runs only when `AI_ENABLED=true` and the selected provider has a key and a model; otherwise the app stays rule-based.
 
 | Variable | Value | Where to get it |
 |---|---|---|
 | `AI_ENABLED` | `true` to use the agent, `false` (default) for rule-based only | — |
+| `AI_PROVIDER` | Optional: `gemini` or `groq`. When empty, Gemini is used if both `GEMINI_*` values are set, otherwise Groq | — |
+| `GEMINI_API_KEY` | Your Gemini API key | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| `GEMINI_MODEL` | A Gemini model id that supports function calling | [Gemini models](https://ai.google.dev/gemini-api/docs/models) |
 | `GROQ_API_KEY` | Your Groq API key | [console.groq.com/keys](https://console.groq.com/keys) |
 | `GROQ_MODEL` | A Groq model id that supports tool calling | [Groq tool use](https://console.groq.com/docs/tool-use) |
 
-1. Copy `.env.example` to `.env.local` (already ignored by Git) and fill in the three values.
+1. Copy `.env.example` to `.env.local` (already ignored by Git), set `AI_ENABLED=true` and fill in the key and model of one provider.
 2. Restart `npm run dev`. A planning result labelled **AI-assisted recommendation** confirms the agent path; **Rule-based recommendation** means the fallback was used.
 3. Never commit `.env.local`, never prefix these variables with `NEXT_PUBLIC_`, and never paste a key into an issue, PR or chat. Gitleaks scans every pull request for leaked secrets.
 

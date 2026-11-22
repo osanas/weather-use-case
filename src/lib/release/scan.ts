@@ -11,7 +11,12 @@ export const CLIENT_BUNDLE_RULES: readonly { rule: string; pattern: RegExp }[] =
   { rule: 'groq-model-variable', pattern: /GROQ_MODEL/ },
   { rule: 'groq-api-host', pattern: /api\.groq\.com/ },
   { rule: 'groq-key-format', pattern: /gsk_[A-Za-z0-9]{20,}/ },
+  { rule: 'gemini-key-variable', pattern: /GEMINI_API_KEY/ },
+  { rule: 'gemini-model-variable', pattern: /GEMINI_MODEL/ },
+  { rule: 'gemini-api-host', pattern: /generativelanguage\.googleapis\.com/ },
+  { rule: 'gemini-key-format', pattern: /AIza[0-9A-Za-z_-]{35}/ },
   { rule: 'ai-flag', pattern: /AI_ENABLED/ },
+  { rule: 'ai-provider-variable', pattern: /AI_PROVIDER/ },
 ];
 
 function* walk(dir: string): Generator<string> {

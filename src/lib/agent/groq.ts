@@ -6,7 +6,19 @@ export const GROQ_CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions';
 /** Small output budget: the model only requests tools and confirms; its text is never shown. */
 const MAX_COMPLETION_TOKENS = 300;
 
-export type ToolCall = { id: string; name: string; arguments: string };
+export type ToolCall = {
+  id: string;
+  name: string;
+  arguments: string;
+  /**
+   * Opaque provider data attached to a tool call (Gemini thought signature). It is echoed
+   * back to the same provider unchanged, never read, logged or shown.
+   */
+  extraContent?: Record<string, unknown>;
+};
+
+/** Upper bound for echoed provider data, in serialized characters. */
+const MAX_EXTRA_CONTENT_CHARS = 4000;
 
 export type ChatMessage =
   | { role: 'system' | 'user'; content: string }
@@ -36,16 +48,19 @@ const responseSchema = z.object({
     message: z.object({
       content: z.string().nullable().optional(),
       tool_calls: z.array(z.object({
-        id: z.string().min(1).max(200),
+        // Some OpenAI-compatible providers (Gemini) may omit the id; one is assigned below.
+        id: z.string().max(200).optional(),
         type: z.literal('function'),
         function: z.object({ name: z.string().max(100), arguments: z.string().max(2000) }),
+        extra_content: z.record(z.string(), z.unknown())
+          .refine(v => JSON.stringify(v).length <= MAX_EXTRA_CONTENT_CHARS).optional(),
       })).max(10).optional(),
     }),
   })).min(1),
 });
 
-/** OpenAI-compatible wire format used by Groq. */
-function toWire(message: ChatMessage) {
+/** OpenAI-compatible wire format used by Groq and Gemini. */
+export function toWire(message: ChatMessage) {
   switch (message.role) {
     case 'assistant':
       return {
@@ -54,6 +69,7 @@ function toWire(message: ChatMessage) {
         ...(message.toolCalls?.length ? {
           tool_calls: message.toolCalls.map(c => ({
             id: c.id, type: 'function', function: { name: c.name, arguments: c.arguments },
+            ...(c.extraContent ? { extra_content: c.extraContent } : {}),
           })),
         } : {}),
       };
@@ -86,22 +102,28 @@ export function buildGroqBody(model: string, messages: readonly ChatMessage[], t
 }
 
 /**
- * Groq chat client. Sends only the model id, the server-built messages and the tool list,
- * with no visitor headers, IPs or identifiers. Errors are mapped to safe outcomes.
+ * Client for an OpenAI-compatible chat endpoint. Sends only the provider-specific body built
+ * by the server, with no visitor headers, IPs or identifiers. Errors are mapped to safe outcomes.
+ * `url` is a fixed provider constant, never built from client input.
  */
-export function createGroqModel(config: AgentConfig, fetchImpl: typeof fetch = fetch): ChatModel {
+export function createOpenAiCompatibleModel(
+  url: string,
+  apiKey: string,
+  buildBody: (messages: readonly ChatMessage[], tools: readonly ToolDefinition[]) => unknown,
+  fetchImpl: typeof fetch = fetch,
+): ChatModel {
   return {
     async complete(messages, tools, signal) {
       let response: Response;
       try {
-        response = await fetchImpl(GROQ_CHAT_URL, {
+        response = await fetchImpl(url, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${config.apiKey}`,
+            Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
             Accept: 'application/json',
           },
-          body: JSON.stringify(buildGroqBody(config.model, messages, tools)),
+          body: JSON.stringify(buildBody(messages, tools)),
           cache: 'no-store',
           signal,
         });
@@ -121,10 +143,21 @@ export function createGroqModel(config: AgentConfig, fetchImpl: typeof fetch = f
       const parsed = responseSchema.safeParse(body);
       if (!parsed.success) throw new ModelError('invalid_response');
       const { message } = parsed.data.choices[0]!;
+      const turn = messages.filter(m => m.role === 'assistant').length;
       return {
         content: message.content ?? null,
-        toolCalls: (message.tool_calls ?? []).map(c => ({ id: c.id, name: c.function.name, arguments: c.function.arguments })),
+        toolCalls: (message.tool_calls ?? []).map((c, i) => ({
+          id: c.id || `call_${turn}_${i}`, name: c.function.name, arguments: c.function.arguments,
+          ...(c.extra_content ? { extraContent: c.extra_content } : {}),
+        })),
       };
     },
   };
+}
+
+/** Groq chat client. */
+export function createGroqModel(config: AgentConfig, fetchImpl: typeof fetch = fetch): ChatModel {
+  return createOpenAiCompatibleModel(
+    GROQ_CHAT_URL, config.apiKey, (messages, tools) => buildGroqBody(config.model, messages, tools), fetchImpl,
+  );
 }

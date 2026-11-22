@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createGeminiModel } from '@/lib/agent/gemini';
 import { createGroqModel, ModelError, type ChatModel } from '@/lib/agent/groq';
 import { AGENT_NOW, agentForecast, call, HAPPY_SCRIPT, say, scriptedModel } from '@/lib/agent/test-support';
 import type { City } from '@/lib/cities';
@@ -124,7 +125,10 @@ describe('POST /api/plan with the agent', () => {
     expect(calls()).toBe(0);
   });
 
-  it('sends the model only validated values and public forecast data, never visitor data', async () => {
+  it.each([
+    ['Groq', (f: typeof fetch) => createGroqModel({ provider: 'groq', apiKey: 'test-placeholder-key', model: 'test-model' }, f)],
+    ['Gemini', (f: typeof fetch) => createGeminiModel({ provider: 'gemini', apiKey: 'test-placeholder-key', model: 'test-model' }, f)],
+  ])('sends %s only validated values and public forecast data, never visitor data', async (_name, createModel) => {
     const bodies: string[] = [];
     const turns = [...HAPPY_SCRIPT];
     let turn = 0;
@@ -138,7 +142,7 @@ describe('POST /api/plan with the agent', () => {
         })) } : {}),
       } }] }), { headers: { 'Content-Type': 'application/json' } });
     });
-    const model = createGroqModel({ apiKey: 'test-placeholder-key', model: 'test-model' }, fetchImpl);
+    const model = createModel(fetchImpl);
     const { post } = setup(model);
     expect((await post()).body.mode).toBe('agent');
     expect(fetchImpl).toHaveBeenCalledTimes(3);

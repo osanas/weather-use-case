@@ -9,6 +9,9 @@ Import the Git repository into Vercel as a Next.js project. Use `main` as the pr
 | Variable | Configuration |
 |---|---|
 | `AI_ENABLED` | Defaults to `false`. Enable in production after validating the provider configuration and request path. |
+| `AI_PROVIDER` | Optional, `gemini` or `groq`. Selects the only AI provider the deployment calls. When unset, Gemini is used if both `GEMINI_*` values are set, otherwise Groq. Any other value disables the agent. Set it explicitly in production and record it in the release record. |
+| `GEMINI_API_KEY` | Server-only Gemini API credential. Use a separate key per environment that calls the model. Keep disabled previews keyless. |
+| `GEMINI_MODEL` | A specific Gemini model identifier verified to support function calling through the OpenAI-compatible endpoint. Record the tested identifier in the release record. |
 | `GROQ_API_KEY` | Server-only credential. Use a separate key per environment that calls the model. Keep disabled previews keyless. |
 | `GROQ_MODEL` | A specific Groq model identifier verified to support local tool calling. Record the tested identifier in the release record. |
 
@@ -17,7 +20,10 @@ Import the Git repository into Vercel as a Next.js project. Use `main` as the pr
 | Variable | Local | Vercel Preview | Vercel Production | GitHub |
 |---|---|---|---|---|
 | `AI_ENABLED` | `.env.local` | `false` by default | `true` after validation | `false` in CI |
-| `GROQ_API_KEY` | `.env.local` | Only for an AI-enabled preview, with its own key | Production key | Never |
+| `AI_PROVIDER` | `.env.local` (optional) | With the key | `gemini` or `groq` | Never |
+| `GEMINI_API_KEY` | `.env.local` | Only for an AI-enabled preview, with its own key | Production key if Gemini is selected | Never |
+| `GEMINI_MODEL` | `.env.local` | With the key | Tested model id | Never |
+| `GROQ_API_KEY` | `.env.local` | Only for an AI-enabled preview, with its own key | Production key if Groq is selected | Never |
 | `GROQ_MODEL` | `.env.local` | With the key | Tested model id | Never |
 | `ZAP_TARGET_URL` | — | — | — | Repository secret read by the ZAP baseline workflow |
 
@@ -42,7 +48,7 @@ If the Québec private-sector statute applies and this project involves personal
 
 Publish a plain-language privacy notice and make it accessible from the app. Verify operator identity, contact, purposes, data categories, recipients, locations where relevant, retention and rights or request process against actual settings. Address any applicable language obligations. If the law applies, confirm the privacy lead's published title and contact, governance practices, complaint and rights handling, and incident register. Record the access, retention and deletion arrangements for provider logs. Revisit the assessment before adding accounts, geolocation, analytics, chat or a new processor.
 
-Confirm the intended use is allowed by the selected hosting, weather and AI terms. Verify Groq's data settings and record its actual retention configuration. The model payload is limited to approved, non-identifying planning values and public forecasts regardless of the provider's retention option.
+Confirm the intended use is allowed by the selected hosting, weather and AI terms. Verify the data settings of the enabled AI provider (Groq or Google Gemini) and record its actual retention configuration. Gemini API terms differ between unpaid and paid tiers for how prompts may be used, so confirm the billing tier of the production key. The model payload is limited to approved, non-identifying planning values and public forecasts regardless of the provider's retention option.
 
 | Data flow | Expected data | Evidence to record privately |
 |---|---|---|
@@ -57,7 +63,7 @@ References
 - [Commission d’accès à l’information | Main Law 25 changes](https://www.cai.gouv.qc.ca/protection-renseignements-personnels/sujets-et-domaines-dinteret/principaux-changements-loi-25)
 - [Office of the Privacy Commissioner of Canada | Application of PIPEDA](https://www.priv.gc.ca/en/privacy-topics/privacy-laws-in-canada/the-personal-information-protection-and-electronic-documents-act-pipeda/r_o_p/02_05_d_26/)
 - [Vercel regions](https://vercel.com/docs/regions) · [Firewall rate limiting](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting) · [Rollback](https://vercel.com/docs/instant-rollback)
-- [GroqCloud data controls](https://console.groq.com/docs/your-data) · [Groq terms](https://console.groq.com/docs/legal/services-agreement) · [Open-Meteo terms](https://open-meteo.com/en/terms)
+- [GroqCloud data controls](https://console.groq.com/docs/your-data) · [Groq terms](https://console.groq.com/docs/legal/services-agreement) · [Gemini API terms](https://ai.google.dev/gemini-api/terms) · [Gemini OpenAI compatibility](https://ai.google.dev/gemini-api/docs/openai) · [Open-Meteo terms](https://open-meteo.com/en/terms)
 
 ## Release and verification
 
@@ -86,7 +92,7 @@ Fill this table for the release commit. Keep credentials and identifying log exc
 | 1 | Verify passes on the release commit | GitHub Actions run for the merge commit | _pending_ |
 | 2 | Production URL and deployed SHA | Vercel deployment details; record in README | _pending_ |
 | 3 | Function region | Vercel project settings and a function response | Observed 2026-11-20: `x-vercel-id` on `/api/weather` is `yul1::iad1::…`, so the edge is Montréal but functions run in `iad1` (Washington, US). Set the region to `yul1` or state `iad1` in the privacy notice |
-| 4 | Environment variables | `AI_ENABLED`, `GROQ_API_KEY`, `GROQ_MODEL` set for Production only; Preview keyless with `AI_ENABLED=false` | _pending_ |
+| 4 | Environment variables | `AI_ENABLED`, `AI_PROVIDER` and the selected provider's key and model (`GEMINI_*` or `GROQ_*`) set for Production only; Preview keyless with `AI_ENABLED=false` | _pending_ |
 | 5 | Rate limit on `/api/plan` | Vercel Firewall rule (start at 5 requests per minute per source); send a short burst from a controlled source, confirm limiting and recovery | _pending_ |
 | 6 | Signed-out desktop and mobile test | Private window on desktop and a phone: search, forecast, planning, keyboard navigation | Partial 2026-11-20, signed-out browser at 1280 px and 375 px: keyboard city search (Vancouver), forecast, planning with the guide, no horizontal scroll on mobile. Phone test still to do |
 | 7 | AI path | Planning result labelled AI-assisted with the production key | Failed 2026-11-20: Production-only variables set and redeployed with `GROQ_MODEL=openai/gpt-oss-20b`, but synthetic Laval requests still return rule-based in about 0.3 s. Next: read the `route: plan` function log outcome (none means `AI_ENABLED` is not exactly `true`) |
@@ -95,7 +101,7 @@ Fill this table for the release commit. Keep credentials and identifying log exc
 | 10 | Security headers | `curl -sI <url>` and `curl -sI <url>/api/weather?cityId=laval-qc`: CSP `frame-ancestors 'none'`, `X-Frame-Options`, `nosniff`, referrer and permissions policies, HSTS | Passed 2026-11-20 on `/`, `/privacy` and `/api/weather`: CSP `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, referrer and permissions policies, HSTS, COOP; no `X-Powered-By`; `/api/weather` is `no-store`; a text `POST /api/plan` returns 415 |
 | 11 | Keys stay server-side | CI client-bundle check on the release commit; Gitleaks passes; no key in function logs | _pending_ |
 | 12 | Logs | Vercel function logs show only `route`, `status`, `outcome`, `elapsedMs` entries | _pending_ |
-| 13 | Privacy notice | `/privacy` matches operator, contact, region and Groq retention; `npm run check:release` passes | Failed 2026-11-20: the live `/privacy` still shows the `[TO COMPLETE …]` placeholders |
+| 13 | Privacy notice | `/privacy` matches operator, contact, region, the enabled AI provider and its retention; `npm run check:release` passes | Failed 2026-11-20: the live `/privacy` still shows the `[TO COMPLETE …]` placeholders |
 | 14 | ZAP baseline | Run `zap-baseline.yml` against the production URL; review findings | _pending_ |
 
 ## Rollback and incidents

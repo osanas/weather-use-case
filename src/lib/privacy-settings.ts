@@ -10,8 +10,10 @@ export const PRIVACY_SETTINGS = {
   contact: '[TO COMPLETE: privacy contact email]',
   /** Vercel Functions region actually used (for example yul1, Montréal). */
   functionRegion: '[TO COMPLETE: Vercel function region]',
-  /** Groq data retention setting for the production API key. */
-  groqRetention: '[TO COMPLETE: Groq data retention setting]',
+  /** AI provider enabled in production (`Groq` or `Google Gemini`), matching `AI_PROVIDER`. */
+  aiProvider: '[TO COMPLETE: AI provider enabled in production]',
+  /** Data retention setting of that provider for the production API key. */
+  aiRetention: '[TO COMPLETE: AI provider data retention setting]',
   /** Date this notice was last checked against the deployment, YYYY-MM-DD. */
   lastReviewed: '[TO COMPLETE: review date]',
 } as const;

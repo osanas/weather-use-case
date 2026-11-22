@@ -3,7 +3,7 @@ import { buildGroqBody, createGroqModel, GROQ_CHAT_URL, ModelError } from './gro
 import { AGENT_TOOLS } from './tools';
 
 // Placeholder credentials only.
-const config = { apiKey: 'test-placeholder-key', model: 'test-model' };
+const config = { provider: 'groq', apiKey: 'test-placeholder-key', model: 'test-model' } as const;
 const messages = [{ role: 'system', content: 'sys' }, { role: 'user', content: '{"city":"Laval, Québec"}' }] as const;
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { 'Content-Type': 'application/json' },

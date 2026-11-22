@@ -35,6 +35,22 @@ describe('scanClientBundle', () => {
     expect(JSON.stringify(findings)).not.toContain(FAKE_KEY);
   });
 
+  it('reports Gemini configuration names, host and key-shaped values', () => {
+    const dir = tempDir();
+    const fakeGeminiKey = `AIza${'A1b2C3d4e5'.repeat(3)}xyz12`;
+    writeFileSync(join(dir, 'leak.js'),
+      `const k="${fakeGeminiKey}";fetch("https://generativelanguage.googleapis.com/x");process.env.GEMINI_API_KEY;process.env.GEMINI_MODEL;process.env.AI_PROVIDER`);
+    const findings = scanClientBundle(dir);
+    expect(findings).toEqual(expect.arrayContaining([
+      { file: 'leak.js', rule: 'gemini-key-variable' },
+      { file: 'leak.js', rule: 'gemini-model-variable' },
+      { file: 'leak.js', rule: 'gemini-api-host' },
+      { file: 'leak.js', rule: 'gemini-key-format' },
+      { file: 'leak.js', rule: 'ai-provider-variable' },
+    ]));
+    expect(JSON.stringify(findings)).not.toContain(fakeGeminiKey);
+  });
+
   it('detects the configured key value without printing it', () => {
     const dir = tempDir();
     writeFileSync(join(dir, 'a.js'), 'const x="placeholder-secret-value";');
