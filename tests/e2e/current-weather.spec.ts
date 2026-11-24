@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { makeForecast } from './fixtures';
+import { makeForecast, routeBackdrop } from './fixtures';
 
 // Synthetic forecast; CI never calls Open-Meteo.
 const forecast = makeForecast({
@@ -49,6 +49,7 @@ test('shows a retryable error when the weather API fails', async ({ page }) => {
       })
       : route.fulfill({ json: forecast });
   });
+  await routeBackdrop(page);
   await page.goto('/');
 
   // Next.js renders its own empty route announcer with role="alert"; filter to ours.

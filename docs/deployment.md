@@ -40,6 +40,10 @@ Target Montréal (`yul1`) for Vercel Functions if available on the selected conf
 3. Use a bounded JSON body for planning requests, strict schemas and fixed outbound provider hosts. Reject oversized payloads before parsing the whole body. Use deadlines for provider calls and keep the AI path within the overall budget in the product spec.
 4. Review lockfile changes, dependency alerts and secrets scanning results. Test logs on success and failure. Allowed application fields include the route name, status category, provider outcome and elapsed time. For the planning route, an agent fallback is logged with status `2xx` and an outcome such as `model_timeout`, `model_quota`, `model_http_error`, `model_invalid_response`, `model_network`, `tool_rejected`, `tool_limit`, `turn_limit`, `no_tool_result` or `result_mismatch`; model text, tool payloads and keys are never logged. Review what Vercel and other vendors collect independently.
 
+## Interface assets and backdrop
+
+The fonts (Inter and Pixelify Sans) are downloaded from Google Fonts at build time by `next/font` and served from the app's own origin, so visitors' browsers make no request to Google; the build environment needs access to Google Fonts. The pixel-art backdrop (UI-01) requests `GET /api/weather?cityId=montreal-qc` from the same origin and shares the five-minute forecast cache. It refreshes shortly before the forecast expires while the tab is visible, at most once a minute. It adds no outbound destination, visitor data, identifier or log field. The Open-Meteo request adds the public `is_day` current-conditions field.
+
 ## Privacy review before public release
 
 Identify who operates the deployment and whether the Québec private-sector statute applies to the activity and the data. Review any identifiable data handled by the app, host, firewall, logs, AI provider and any operational tools. For relevant interprovincial or international commercial personal-information flows, assess PIPEDA too.

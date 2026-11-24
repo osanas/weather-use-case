@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { makeForecast } from './fixtures';
+import { BACKDROP_CITY_ID, makeForecast, routeBackdrop, withoutBackdrop } from './fixtures';
 
 // The browser runs in America/Toronto (playwright.config.ts). Vancouver cases prove the
 // city's zone is used for display, not the browser's.
@@ -17,7 +17,10 @@ const montreal = makeForecast({
 
 type Body = ReturnType<typeof makeForecast>;
 
-/** Routes /api/weather by cityId and records every request's cityId. */
+/**
+ * Routes /api/weather by cityId and records every request's cityId. Without a Montréal
+ * body, the backdrop's Montréal request is answered separately and not recorded.
+ */
 async function routeWeather(page: Page, bodies: Record<string, Body>) {
   const requested: string[] = [];
   await page.route('**/api/weather?*', route => {
@@ -28,6 +31,7 @@ async function routeWeather(page: Page, bodies: Record<string, Body>) {
       ? route.fulfill({ json: body })
       : route.fulfill({ status: 400, json: { error: 'invalid_city', message: 'Unknown city.' } });
   });
+  if (!bodies[BACKDROP_CITY_ID]) await routeBackdrop(page);
   return requested;
 }
 
@@ -48,6 +52,8 @@ test('selects a city with the keyboard only, without requests while typing', asy
   const requested = await routeWeather(page, { 'laval-qc': laval(), 'montreal-qc': montreal });
   await page.goto('/');
   await expect(currentRegion(page, 'Laval, Québec')).toContainText('-8 °C');
+  // The backdrop loads Montréal once on its own; only the selection's requests count below.
+  await expect.poll(() => requested).toContain(BACKDROP_CITY_ID);
 
   const combobox = page.getByRole('combobox', { name: 'City' });
   await page.keyboard.press('Tab');
@@ -56,7 +62,7 @@ test('selects a city with the keyboard only, without requests while typing', asy
   await expect(combobox).toHaveAttribute('aria-expanded', 'true');
   // Scoped to the city selector: the planning form's Activity select also has options.
   await expect(cityOptions(page)).toHaveText(['Montréal, Québec']);
-  expect(requested).toEqual(['laval-qc']);
+  expect(withoutBackdrop(requested)).toEqual(['laval-qc']);
 
   await page.keyboard.press('ArrowDown');
   await expect(page.getByRole('option', { name: 'Montréal, Québec' })).toHaveAttribute('aria-selected', 'true');
@@ -65,7 +71,7 @@ test('selects a city with the keyboard only, without requests while typing', asy
   await expect(currentRegion(page, 'Montréal, Québec')).toContainText('22 °C');
   await expect(combobox).toHaveValue('Montréal, Québec');
   await expect(combobox).toHaveAttribute('aria-expanded', 'false');
-  expect(requested).toEqual(['laval-qc', 'montreal-qc']);
+  expect(withoutBackdrop(requested)).toEqual(['laval-qc', 'montreal-qc']);
 });
 
 test('shows no results and Escape restores the selected city', async ({ page }) => {
@@ -143,6 +149,7 @@ test('recovers from a provider failure with Retry', async ({ page }) => {
       ? route.fulfill({ status: 503, json: { error: 'weather_unavailable', message: 'Weather is temporarily unavailable. Try again.' } })
       : route.fulfill({ json: laval() });
   });
+  await routeBackdrop(page);
   await page.goto('/');
 
   const alert = page.getByRole('alert').filter({ hasText: 'Weather is temporarily unavailable' });
@@ -162,6 +169,7 @@ test('never shows an expired forecast as current, and Refresh reloads it', async
     const fetchedAt = new Date(calls === 1 ? start - 60_000 : start + 6 * 60_000).toISOString();
     return route.fulfill({ json: laval({ fetchedAt }) });
   });
+  await routeBackdrop(page);
   await page.goto('/');
   await expect(currentRegion(page, 'Laval, Québec')).toBeVisible();
 

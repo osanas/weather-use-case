@@ -62,6 +62,8 @@ const openMeteoForecastSchema = z.object({
     temperature_2m: reading.optional(),
     wind_speed_10m: reading.optional(),
     weather_code: code.optional(),
+    /** 1 in daylight, 0 at night. Anything else is treated as unknown, not as invalid. */
+    is_day: z.number().nullable().optional(),
   }),
   hourly: hourlySchema,
   daily: dailySchema,
@@ -72,7 +74,7 @@ export function buildForecastUrl(city: City): URL {
   url.search = new URLSearchParams({
     latitude: city.latitude.toFixed(4),
     longitude: city.longitude.toFixed(4),
-    current: 'temperature_2m,wind_speed_10m,weather_code',
+    current: 'temperature_2m,wind_speed_10m,weather_code,is_day',
     hourly: 'temperature_2m,precipitation_probability,wind_speed_10m,weather_code',
     daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
     forecast_days: String(PROVIDER_FORECAST_DAYS),
@@ -178,6 +180,7 @@ export async function fetchForecast(
       temperatureC: current.temperature_2m ?? null,
       windKmh: current.wind_speed_10m ?? null,
       weatherCode: current.weather_code ?? null,
+      isDay: current.is_day === 1 ? true : current.is_day === 0 ? false : null,
     },
     hourly: hourIndexes.map(i => ({
       time: toIso(hourly.time[i]!),

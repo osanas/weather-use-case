@@ -5,6 +5,8 @@ export type CurrentConditions = {
   temperatureC: number | null;
   windKmh: number | null;
   weatherCode: number | null;
+  /** Whether the observation falls in daylight at the city centre, per the provider. */
+  isDay: boolean | null;
 };
 
 /** One hourly forecast point. Readings are `null` when missing. */

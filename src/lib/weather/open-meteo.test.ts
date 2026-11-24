@@ -24,6 +24,7 @@ function providerBody(
       temperature_2m: 18.2,
       wind_speed_10m: 14.8,
       weather_code: 1,
+      is_day: 1,
     },
     hourly: {
       time: [epoch('2027-06-14T12:00:00Z'), epoch('2027-06-14T13:00:00Z')],
@@ -66,7 +67,7 @@ describe('buildForecastUrl', () => {
     expect(Object.fromEntries(url.searchParams)).toEqual({
       latitude: '45.5833',
       longitude: '-73.7500',
-      current: 'temperature_2m,wind_speed_10m,weather_code',
+      current: 'temperature_2m,wind_speed_10m,weather_code,is_day',
       hourly: 'temperature_2m,precipitation_probability,wind_speed_10m,weather_code',
       daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
       // One extra day: its local midnight closes the seventh public day.
@@ -191,7 +192,7 @@ describe('fetchForecast', () => {
       cityId: 'laval-qc',
       timezone: 'America/Toronto',
       fetchedAt: '2027-06-14T12:03:00.000Z',
-      current: { time: '2027-06-14T12:00:00.000Z', temperatureC: 18.2, windKmh: 14.8, weatherCode: 1 },
+      current: { time: '2027-06-14T12:00:00.000Z', temperatureC: 18.2, windKmh: 14.8, weatherCode: 1, isDay: true },
       hourly: [
         { time: '2027-06-14T12:00:00.000Z', temperatureC: 18.2, precipitationProbability: 10, windKmh: 14.8, weatherCode: 1 },
         { time: '2027-06-14T13:00:00.000Z', temperatureC: null, precipitationProbability: 20, windKmh: 30, weatherCode: null },
@@ -238,8 +239,17 @@ describe('fetchForecast', () => {
   it('maps missing current readings to null', async () => {
     const body = { ...providerBody(), current: { time: epoch('2027-06-14T12:00:00Z'), temperature_2m: null } };
     expect((await run(body)).current).toEqual({
-      time: '2027-06-14T12:00:00.000Z', temperatureC: null, windKmh: null, weatherCode: null,
+      time: '2027-06-14T12:00:00.000Z', temperatureC: null, windKmh: null, weatherCode: null, isDay: null,
     });
+  });
+
+  it('maps is_day to a boolean and treats unexpected values as unknown', async () => {
+    const withIsDay = async (isDay: unknown) =>
+      (await run({ ...providerBody(), current: { ...providerBody().current, is_day: isDay } })).current.isDay;
+    expect(await withIsDay(1)).toBe(true);
+    expect(await withIsDay(0)).toBe(false);
+    expect(await withIsDay(null)).toBeNull();
+    expect(await withIsDay(2)).toBeNull();
   });
 
   describe('rejects incomplete or inconsistent payloads as invalid_response', () => {

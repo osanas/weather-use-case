@@ -1,0 +1,140 @@
+/*
+ * "Plateau 16": the pixel-art Montréal world. Colours are tokens on `.world`, switched by
+ * the scene attributes set from the live Montréal forecast (see src/lib/world/scene.ts).
+ * Sky, accent and the main building tokens are registered so scene changes cross-fade.
+ * Token blocks below are plain data; edit the hex values directly.
+ */
+
+@property --sky-1 { syntax: '<color>'; inherits: true; initial-value: #8f8cc4; }
+@property --sky-2 { syntax: '<color>'; inherits: true; initial-value: #a29fd0; }
+@property --sky-3 { syntax: '<color>'; inherits: true; initial-value: #b9b3dc; }
+@property --sky-4 { syntax: '<color>'; inherits: true; initial-value: #d8cce6; }
+@property --px-far { syntax: '<color>'; inherits: true; initial-value: #7d9cc0; }
+@property --px-mid { syntax: '<color>'; inherits: true; initial-value: #4f6489; }
+@property --px-brick { syntax: '<color>'; inherits: true; initial-value: #a4523a; }
+@property --px-cloud { syntax: '<color>'; inherits: true; initial-value: #ffffff; }
+@property --px-win-lit { syntax: '<color>'; inherits: true; initial-value: #9fc4e8; }
+@property --scene-accent { syntax: '<color>'; inherits: true; initial-value: #5b4fa8; }
+
+.world {
+  --px-far: #7d9cc0;
+  --px-far-hi: #9bb8d6;
+  --px-cross: #e8eef5;
+  --px-tower: #8aa3c2;
+  --px-mid: #4f6489;
+  --px-mid-hi: #6c82a8;
+  --px-mid-lo: #3f5274;
+  --px-win: #9fc4e8;
+  --px-win-lit: #9fc4e8;
+  --px-beacon: #e8eef5;
+  --px-roof-cu: #5fae9a;
+  --px-bridge: #3f6b5e;
+  --px-brick: #a4523a;
+  --px-brick-b: #8c4a3c;
+  --px-brick-c: #b86a45;
+  --px-brick-hi: #c47a58;
+  --px-trim: #e9dcc3;
+  --px-stair: #2b2f3a;
+  --px-door: #5b3a2e;
+  --px-tree: #3f8f4f;
+  --px-tree-hi: #6cbf5e;
+  --px-trunk: #5b3a2e;
+  --px-walk: #b8b2a7;
+  --px-curb: #8d877d;
+  --px-road: #4a4d57;
+  --px-road-line: #e9dcc3;
+  --px-puddle: #6d8fb8;
+  --px-puddle-hi: #c9e2ff;
+  --px-snow: #ffffff;
+  --px-cloud: #ffffff;
+  --px-cloud-shade: #d7e4f2;
+  --px-star: #fff7d6;
+  --px-sun: #ffd45c;
+  --px-sun-hi: #fff3b0;
+  --px-sun-rim: #ffb13b;
+  --px-sun-ray: #ffd45c;
+  --px-moon: #f4f1c9;
+  --px-moon-crater: #d9d4a3;
+  --px-raindrop: #a8d8ff;
+  --px-snowflake: #ffffff;
+  --px-ripple: #c9e2ff;
+  --sky-1: #8f8cc4;
+  --sky-2: #a29fd0;
+  --sky-3: #b9b3dc;
+  --sky-4: #d8cce6;
+  --scene-accent: #5b4fa8;
+}
+.world[data-time="night"] {
+  --px-far: #1d2547;
+  --px-far-hi: #27315c;
+  --px-cross: #fff3c4;
+  --px-tower: #232c52;
+  --px-mid: #161d3a;
+  --px-mid-hi: #222b52;
+  --px-mid-lo: #10162d;
+  --px-win: #2a3463;
+  --px-win-lit: #ffc857;
+  --px-beacon: #ff6b6b;
+  --px-roof-cu: #2f5b5a;
+  --px-bridge: #1b3a3c;
+  --px-brick: #4a2a2e;
+  --px-brick-b: #3d2529;
+  --px-brick-c: #55302f;
+  --px-brick-hi: #5e3a38;
+  --px-trim: #6b6275;
+  --px-stair: #0e1020;
+  --px-door: #2a1a1a;
+  --px-tree: #17352a;
+  --px-tree-hi: #21503a;
+  --px-trunk: #24161a;
+  --px-walk: #3a3a48;
+  --px-curb: #2b2b37;
+  --px-road: #1d1e28;
+  --px-road-line: #6b6275;
+  --px-puddle: #2c3d66;
+  --px-puddle-hi: #ffc857;
+  --px-snow: #dfe8ff;
+  --px-cloud: #4a5480;
+  --px-cloud-shade: #363e66;
+  --px-raindrop: #7f9cc8;
+  --px-snowflake: #e6ecff;
+  --px-ripple: #ffc857;
+}
+.world[data-scene="clear-day"] { --sky-1: #4fa7ee; --sky-2: #6ab8f2; --sky-3: #8fcaf5; --sky-4: #bde6ff; }
+.world[data-scene="cloudy-day"] { --sky-1: #7f98b3; --sky-2: #93a9c1; --sky-3: #a9bccf; --sky-4: #c9d5e1; }
+.world[data-scene="fog-day"] { --sky-1: #a7b2bf; --sky-2: #b7c0cb; --sky-3: #c7ced7; --sky-4: #d9dee4; }
+.world[data-scene="rain-day"] { --sky-1: #4e5d78; --sky-2: #5c6b86; --sky-3: #6d7c96; --sky-4: #7f8fa8; }
+.world[data-scene="snow-day"] { --sky-1: #9db4cf; --sky-2: #b2c5db; --sky-3: #c9d8e8; --sky-4: #e4eef7; }
+.world[data-scene="storm-day"] { --sky-1: #2c3247; --sky-2: #383f57; --sky-3: #454c66; --sky-4: #555d78; }
+.world[data-scene="clear-night"] { --sky-1: #0d1530; --sky-2: #141d3f; --sky-3: #1d2550; --sky-4: #2a2f5e; }
+.world[data-scene="cloudy-night"] { --sky-1: #1a2036; --sky-2: #202740; --sky-3: #272e4a; --sky-4: #303756; }
+.world[data-scene="fog-night"] { --sky-1: #2a3044; --sky-2: #323849; --sky-3: #3b4152; --sky-4: #474c5c; }
+.world[data-scene="rain-night"] { --sky-1: #121a2c; --sky-2: #172036; --sky-3: #1d2740; --sky-4: #25304c; }
+.world[data-scene="snow-night"] { --sky-1: #1d2a48; --sky-2: #26345a; --sky-3: #30406a; --sky-4: #3d4f7d; }
+.world[data-scene="storm-night"] { --sky-1: #0b0e1a; --sky-2: #12162a; --sky-3: #191e38; --sky-4: #22284a; }
+.world[data-scene="rain-day"] { --px-cloud: #8a96ab; --px-cloud-shade: #6b778d; }
+.world[data-scene="storm-day"] { --px-cloud: #5d6479; --px-cloud-shade: #474d61; }
+.world[data-scene="fog-day"] { --px-cloud: #e4e8ec; --px-cloud-shade: #cfd5dc; }
+.world[data-scene="cloudy-day"] { --px-cloud: #f1f4f7; --px-cloud-shade: #c9d3de; }
+.world[data-scene="rain-night"] { --px-cloud: #2c3550; --px-cloud-shade: #20283f; }
+.world[data-scene="storm-night"] { --px-cloud: #232a40; --px-cloud-shade: #191e30; }
+.world[data-scene="calm"] { --px-cloud: #f3eefa; --px-cloud-shade: #d6cde8; }
+
+/* Page accent follows the scene; every value keeps AA contrast with the cards and button text. */
+.world[data-sky="clear"] { --scene-accent: #a8480c; }
+.world[data-sky="cloudy"] { --scene-accent: #3d5f8f; }
+.world[data-sky="fog"] { --scene-accent: #4d5b6d; }
+.world[data-sky="rain"] { --scene-accent: #1f5fa8; }
+.world[data-sky="snow"] { --scene-accent: #1d5e9e; }
+.world[data-sky="storm"] { --scene-accent: #5a3fa0; }
+.world[data-time="night"] { --scene-accent: #4a3fb0; }
+@media (prefers-color-scheme: dark) {
+  .world { --scene-accent: #c2b8ff; }
+  .world[data-sky="clear"] { --scene-accent: #ffb37a; }
+  .world[data-sky="cloudy"] { --scene-accent: #9cc0ee; }
+  .world[data-sky="fog"] { --scene-accent: #b9c4d2; }
+  .world[data-sky="rain"] { --scene-accent: #8cc4ff; }
+  .world[data-sky="snow"] { --scene-accent: #9fd0ff; }
+  .world[data-sky="storm"] { --scene-accent: #c4b0ff; }
+  .world[data-time="night"] { --scene-accent: #ffd27a; }
+}
