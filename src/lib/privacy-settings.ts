@@ -1,21 +1,19 @@
 /**
  * Facts shown in the privacy notice that depend on the actual deployment. They must match
- * the production configuration (WEA-10, PRIV-01). Values marked `[TO COMPLETE …]` are not
- * known yet; `npm run check:release` fails while any marker remains.
+ * the production configuration (WEA-10, PRIV-01). A value that is not known yet is written as
+ * a "TO COMPLETE" placeholder in square brackets; `npm run check:release` fails while one remains.
  */
 export const PRIVACY_SETTINGS = {
   /** Who operates the public deployment. Shown publicly. */
-  operator: '[TO COMPLETE: operator name]',
+  operator: 'AN45 Labs',
   /** Public contact for privacy questions and requests. Shown publicly. */
-  contact: '[TO COMPLETE: privacy contact email]',
+  contact: 'anas@an45.co',
   /** Vercel Functions region actually used (for example yul1, Montréal). */
-  functionRegion: '[TO COMPLETE: Vercel function region]',
+  functionRegion: 'yul1 (Montréal, Canada)',
   /** AI provider enabled in production (`Groq` or `Google Gemini`), matching `AI_PROVIDER`. */
-  aiProvider: '[TO COMPLETE: AI provider enabled in production]',
+  aiProvider: 'Groq',
   /** Data retention setting of that provider for the production API key. */
-  aiRetention: '[TO COMPLETE: AI provider data retention setting]',
+  aiRetention: "Groq's default account settings, not changed for this demo (see console.groq.com/docs/your-data)",
   /** Date this notice was last checked against the deployment, YYYY-MM-DD. */
-  lastReviewed: '[TO COMPLETE: review date]',
+  lastReviewed: '2026-11-24',
 } as const;
-
-export const TO_COMPLETE_MARKER = '[TO COMPLETE';
