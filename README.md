@@ -8,7 +8,7 @@ Fill in the table below after the production checks in [Deployment](docs/deploym
 |---|---|
 | Public app | https://weather-use-case-rho.vercel.app |
 | Source repository | https://github.com/osanas/weather-use-case |
-| Deployed commit | _Fill in with the tested commit SHA._ |
+| Deployed commit | `29f84ee` (production, verified 2026-11-24) |
 
 This document describes the target implementation for the hiring exercise. The local commands below are the planned repository interface and must be checked against the implementation before submission.
 
@@ -57,7 +57,7 @@ The agent is optional and uses one provider: Google Gemini or Groq. It runs only
 | `AI_PROVIDER` | Optional: `gemini` or `groq`. When empty, Gemini is used if both `GEMINI_*` values are set, otherwise Groq | — |
 | `GEMINI_API_KEY` | Your Gemini API key | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | `GEMINI_MODEL` | A Gemini model id that supports function calling | [Gemini models](https://ai.google.dev/gemini-api/docs/models) |
-| `GROQ_API_KEY` | Your Groq API key | [console.groq.com/keys](https://console.groq.com/keys) |
+| `GROQ_API_KEY` | Your GroqCloud API key, starting with `gsk_` (not an xAI Grok key) | [console.groq.com/keys](https://console.groq.com/keys) |
 | `GROQ_MODEL` | A Groq model id that supports tool calling | [Groq tool use](https://console.groq.com/docs/tool-use) |
 
 1. Copy `.env.example` to `.env.local` (already ignored by Git), set `AI_ENABLED=true` and fill in the key and model of one provider.
