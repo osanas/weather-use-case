@@ -12,7 +12,7 @@ Import the Git repository into Vercel as a Next.js project. Use `main` as the pr
 | `AI_PROVIDER` | Optional, `gemini` or `groq`. Selects the only AI provider the deployment calls. When unset, Gemini is used if both `GEMINI_*` values are set, otherwise Groq. Any other value disables the agent. Set it explicitly in production and record it in the release record. |
 | `GEMINI_API_KEY` | Server-only Gemini API credential. Use a separate key per environment that calls the model. Keep disabled previews keyless. |
 | `GEMINI_MODEL` | A specific Gemini model identifier verified to support function calling through the OpenAI-compatible endpoint. Record the tested identifier in the release record. |
-| `GROQ_API_KEY` | Server-only credential. Use a separate key per environment that calls the model. Keep disabled previews keyless. |
+| `GROQ_API_KEY` | Server-only GroqCloud credential from `console.groq.com` (keys start with `gsk_`). Groq is not xAI Grok: an xAI key is rejected with `401 invalid_api_key`, logged as `model_http_error`. Use a separate key per environment that calls the model. Keep disabled previews keyless. |
 | `GROQ_MODEL` | A specific Groq model identifier verified to support local tool calling. Record the tested identifier in the release record. |
 
 ### Where to set each value
@@ -90,17 +90,17 @@ Fill this table for the release commit. Keep credentials and identifying log exc
 | # | Check | How | Result |
 |---|---|---|---|
 | 1 | Verify passes on the release commit | GitHub Actions run for the merge commit | _pending_ |
-| 2 | Production URL and deployed SHA | Vercel deployment details; record in README | _pending_ |
-| 3 | Function region | Vercel project settings and a function response | Observed 2026-11-20: `x-vercel-id` on `/api/weather` is `yul1::iad1::…`, so the edge is Montréal but functions run in `iad1` (Washington, US). Set the region to `yul1` or state `iad1` in the privacy notice |
-| 4 | Environment variables | `AI_ENABLED`, `AI_PROVIDER` and the selected provider's key and model (`GEMINI_*` or `GROQ_*`) set for Production only; Preview keyless with `AI_ENABLED=false` | _pending_ |
+| 2 | Production URL and deployed SHA | Vercel deployment details; record in README | Recorded 2026-11-24: `https://weather-use-case-rho.vercel.app` serves SHA `29f84ee` (`main`) |
+| 3 | Function region | Vercel project settings and a function response | Passed 2026-11-24: function region set to `yul1`; `x-vercel-id` on `POST /api/plan` is `yul1::yul1::…` and the function log reports `region=yul1`. Before that change functions ran in `iad1` (Washington, US) |
+| 4 | Environment variables | `AI_ENABLED`, `AI_PROVIDER` and the selected provider's key and model (`GEMINI_*` or `GROQ_*`) set for Production only; Preview keyless with `AI_ENABLED=false` | Checked 2026-11-24 (names only): Production has `AI_ENABLED`, `AI_PROVIDER=groq`, `GROQ_API_KEY`, `GROQ_MODEL`, plus an unused `GEMINI_API_KEY` without `GEMINI_MODEL`; no variable targets Preview |
 | 5 | Rate limit on `/api/plan` | Vercel Firewall rule (start at 5 requests per minute per source); send a short burst from a controlled source, confirm limiting and recovery | _pending_ |
 | 6 | Signed-out desktop and mobile test | Private window on desktop and a phone: search, forecast, planning, keyboard navigation | Partial 2026-11-20, signed-out browser at 1280 px and 375 px: keyboard city search (Vancouver), forecast, planning with the guide, no horizontal scroll on mobile. Phone test still to do |
-| 7 | AI path | Planning result labelled AI-assisted with the production key | Failed 2026-11-20: Production-only variables set and redeployed with `GROQ_MODEL=openai/gpt-oss-20b`, but synthetic Laval requests still return rule-based in about 0.3 s. Next: read the `route: plan` function log outcome (none means `AI_ENABLED` is not exactly `true`) |
+| 7 | AI path | Planning result labelled AI-assisted with the production key | Passed 2026-11-24 on SHA `29f84ee` with `AI_PROVIDER=groq` and the tested model `openai/gpt-oss-20b` (the `GROQ_MODEL` value is encrypted in Vercel and was entered by the maintainer): a synthetic Laval request returns `"mode":"agent"` in about 1.4 s, and a direct Groq call with the same tool format returns 200 with a `get_day_forecast` call. Earlier failures (2026-11-20 to 2026-11-24) logged `model_http_error`: `GROQ_API_KEY` held an xAI Grok key, which Groq rejects with 401 |
 | 8 | AI failure | Preview with an invalid key or `AI_ENABLED=false`: same result labelled rule-based, forecast still works | _pending_ |
 | 9 | Weather failure | Covered by CI (provider failure tests); on a preview, confirm the retryable error state | _pending_ |
 | 10 | Security headers | `curl -sI <url>` and `curl -sI <url>/api/weather?cityId=laval-qc`: CSP `frame-ancestors 'none'`, `X-Frame-Options`, `nosniff`, referrer and permissions policies, HSTS | Passed 2026-11-20 on `/`, `/privacy` and `/api/weather`: CSP `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, referrer and permissions policies, HSTS, COOP; no `X-Powered-By`; `/api/weather` is `no-store`; a text `POST /api/plan` returns 415 |
 | 11 | Keys stay server-side | CI client-bundle check on the release commit; Gitleaks passes; no key in function logs | _pending_ |
-| 12 | Logs | Vercel function logs show only `route`, `status`, `outcome`, `elapsedMs` entries | _pending_ |
+| 12 | Logs | Vercel function logs show only `route`, `status`, `outcome`, `elapsedMs` entries | Partial 2026-11-24: application entries contain only these four fields; a successful agent run writes no entry. Vercel adds its own request metadata (deployment, request ID, domain, region, runtime); check platform-level fields and retention separately |
 | 13 | Privacy notice | `/privacy` matches operator, contact, region, the enabled AI provider and its retention; `npm run check:release` passes | Failed 2026-11-20: the live `/privacy` still shows the `[TO COMPLETE …]` placeholders |
 | 14 | ZAP baseline | Run `zap-baseline.yml` against the production URL; review findings | _pending_ |
 
