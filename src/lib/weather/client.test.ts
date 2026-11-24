@@ -24,6 +24,14 @@ describe('toWeatherResponse', () => {
     });
   });
 
+  it('keeps a boolean isDay and treats anything else as unknown', () => {
+    const withIsDay = (isDay: unknown) =>
+      toWeatherResponse({ ...valid, current: { ...valid.current, isDay } }, 'laval-qc')?.current.isDay;
+    expect(withIsDay(false)).toBe(false);
+    expect(withIsDay(1)).toBeNull();
+    expect(withIsDay(undefined)).toBeNull();
+  });
+
   it.each([
     ['a different city', { ...valid, cityId: 'montreal-qc' }],
     ['a non-array hourly', { ...valid, hourly: {} }],

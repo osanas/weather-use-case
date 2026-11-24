@@ -6,7 +6,7 @@ export function syntheticForecast(overrides: Partial<WeatherResponse> = {}): Wea
     cityId: 'laval-qc',
     timezone: 'America/Toronto',
     fetchedAt: '2027-06-14T12:00:00.000Z',
-    current: { time: '2027-06-14T12:00:00.000Z', temperatureC: 18, windKmh: 15, weatherCode: 0 },
+    current: { time: '2027-06-14T12:00:00.000Z', temperatureC: 18, windKmh: 15, weatherCode: 0, isDay: true },
     hourly: [
       { time: '2027-06-14T12:00:00.000Z', temperatureC: 18, precipitationProbability: 10, windKmh: 15, weatherCode: 0 },
       { time: '2027-06-14T13:00:00.000Z', temperatureC: 19, precipitationProbability: null, windKmh: 30, weatherCode: 1 },

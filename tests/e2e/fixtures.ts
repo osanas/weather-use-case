@@ -1,5 +1,27 @@
 // Synthetic /api/weather bodies for browser tests. CI never calls Open-Meteo.
+import type { Page } from '@playwright/test';
 import type { CurrentConditions as Current, WeatherResponse } from '../../src/lib/weather/types';
+
+/** The pixel-art backdrop always requests Montréal's forecast once when the page loads. */
+export const BACKDROP_CITY_ID = 'montreal-qc';
+
+/**
+ * Answers the backdrop's Montréal request apart from the city under test, with an outage,
+ * so the backdrop shows its neutral scene. Register it after the test's own /api/weather
+ * route: Playwright tries the most recent matching route first. Use it only in tests where
+ * Montréal is never the selected city.
+ */
+export async function routeBackdrop(page: Page): Promise<void> {
+  await page.route(`**/api/weather?cityId=${BACKDROP_CITY_ID}`, route => route.fulfill({
+    status: 503, json: { error: 'weather_unavailable', message: 'Weather is temporarily unavailable. Try again.' },
+  }));
+}
+
+/** Requested city IDs without the backdrop's first Montréal request. */
+export function withoutBackdrop(requested: readonly string[]): string[] {
+  const i = requested.indexOf(BACKDROP_CITY_ID);
+  return i === -1 ? [...requested] : [...requested.slice(0, i), ...requested.slice(i + 1)];
+}
 
 export type ForecastOptions = {
   cityId: string;
@@ -32,6 +54,7 @@ export function makeForecast(o: ForecastOptions): WeatherResponse {
       temperatureC,
       windKmh: 12,
       weatherCode: 3,
+      isDay: true,
       ...o.current,
     },
     hourly: Array.from({ length: o.hours ?? 48 }, (_, i) => ({

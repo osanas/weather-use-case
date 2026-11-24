@@ -64,6 +64,7 @@ export function toWeatherResponse(body: unknown, cityId: string): WeatherRespons
     temperatureC: num(c.temperatureC),
     windKmh: num(c.windKmh),
     weatherCode: num(c.weatherCode),
+    isDay: typeof c.isDay === 'boolean' ? c.isDay : null,
   };
   const hourly = mapAll(body.hourly, toHourly);
   const daily = mapAll(body.daily, toDaily);
