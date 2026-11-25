@@ -10,6 +10,7 @@ import { PlanBoard } from './board/PlanBoard';
 import { PlanningChat } from './chat/PlanningChat';
 import { CitySelector } from './CitySelector';
 import { CurrentPanel, ForecastPanels } from './ForecastView';
+import { LocationNotice } from './LocationNotice';
 
 type Board = { plans: BoardPlan[]; activeId: string | null };
 type BoardAction =
@@ -23,9 +24,20 @@ function boardReducer(state: Board, action: BoardAction): Board {
   return { plans, activeId: boardId(action.conversationId, action.cityId) };
 }
 
-export function WeatherApp({ cities, defaultCityId }: { cities: readonly City[]; defaultCityId: string }) {
+export function WeatherApp({
+  cities,
+  defaultCityId,
+  locatedCityId = null,
+}: {
+  cities: readonly City[];
+  defaultCityId: string;
+  /** Set only when the default came from the visitor's approximate location. */
+  locatedCityId?: string | null;
+}) {
   const [selectedId, setSelectedId] = useState(defaultCityId);
+  const [locationNoticeOpen, setLocationNoticeOpen] = useState(locatedCityId !== null);
   const city = cities.find(c => c.id === selectedId) ?? cities[0];
+  const locatedCity = locatedCityId ? cities.find(c => c.id === locatedCityId) : undefined;
   // Loaded once for the selected city and shared by the chat, the board and the forecast panels.
   const forecast = useForecast(city?.id ?? defaultCityId);
   const bounds = useDateBounds(city?.timeZone ?? 'UTC');
@@ -37,11 +49,17 @@ export function WeatherApp({ cities, defaultCityId }: { cities: readonly City[];
     if (cityId) dispatch({ type: 'chat', conversationId, cityId, plan });
   }, [cityId]);
 
+  // Any city the visitor picks (search, chat or plan) replaces the located default and closes the notice.
+  const chooseCity = useCallback((id: string) => {
+    setSelectedId(id);
+    setLocationNoticeOpen(false);
+  }, []);
+
   const onOpen = useCallback((plan: BoardPlan) => {
     dispatch({ type: 'reopen', id: plan.id });
-    setSelectedId(plan.cityId);
+    chooseCity(plan.cityId);
     setReopen(r => ({ plan, seq: (r?.seq ?? 0) + 1 }));
-  }, []);
+  }, [chooseCity]);
 
   if (!city) return null;
   const cityName = cityDisplayName(city);
@@ -51,13 +69,16 @@ export function WeatherApp({ cities, defaultCityId }: { cities: readonly City[];
 
   return (
     <>
+      {locationNoticeOpen && locatedCity && locatedCity.id === city.id && (
+        <LocationNotice cityName={cityDisplayName(locatedCity)} onDismiss={() => setLocationNoticeOpen(false)} />
+      )}
       {/* Keyed so a city chosen in the chat also shows here. */}
-      <CitySelector key={city.id} cities={cities} selectedId={city.id} onSelect={setSelectedId} />
+      <CitySelector key={city.id} cities={cities} selectedId={city.id} onSelect={chooseCity} />
       <div className="top-grid">
         <PlanningChat
           city={city}
           cities={cities}
-          onSelectCity={setSelectedId}
+          onSelectCity={chooseCity}
           days={fresh?.daily ?? null}
           onPlanChange={onPlanChange}
           reopen={reopen}

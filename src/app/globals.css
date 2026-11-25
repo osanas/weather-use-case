@@ -96,6 +96,8 @@ dd { margin: 0; }
 
 .note, footer { color: var(--muted); font-size: 0.875rem; }
 footer { margin-top: 1.5rem; }
+.location-notice { margin: 0 0 1rem; }
+.location-notice button { margin-left: 0.5rem; padding: 0.125rem 0.5rem; font: inherit; }
 a { color: var(--accent); }
 
 .error p { color: var(--error); margin-top: 0; }

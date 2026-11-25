@@ -4,7 +4,9 @@ Status — proposed baseline for the hiring exercise. Implementation and release
 
 ## Objective and scope
 
-Deliver a public React weather app that helps people check the forecast and choose an outdoor activity window. The first release supports a curated catalogue of Canadian cities, one responsive English interface, metric units and one planning workflow. Accounts, browser geolocation, street addresses, free-form AI chat, analytics, advertising, notifications and persistent user history are outside the first release.
+Deliver a public React weather app that helps people check the forecast and choose an outdoor activity window. The first release supports a curated catalogue of Canadian cities, one responsive English interface, metric units and one planning workflow. Accounts, browser geolocation (no permission prompt is ever requested), street addresses, free-form AI chat, analytics, advertising, notifications and persistent user history are outside the first release.
+
+The first city is chosen from the host's approximate position for the request: the nearest catalogue city within 300 km, otherwise Laval. The server reads only the approximate latitude and longitude, does not store or log them, and never forwards them to a provider. A notice says why the city was chosen and can be dismissed; the visitor can pick any city. This is a privacy-impacting change and is recorded for review in the [deployment privacy review](deployment.md#privacy-review-before-public-release).
 
 The catalogue stores public city identifiers, labels, province codes, city-centre coordinates and IANA time zones. Include Laval, Montréal and at least one city in a different time zone. Local search runs in the browser. Search keystrokes stay there, and every API request uses an identifier from the catalogue.
 

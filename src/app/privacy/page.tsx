@@ -44,6 +44,13 @@ export default function PrivacyPage() {
             {functionRegion} and may keep platform and security logs under its own settings.
           </li>
           <li>
+            <strong>Default city from your approximate location</strong>: on the first visit, the server reads the
+            approximate latitude and longitude that the hosting provider attaches to the request and picks the
+            nearest city in the app&apos;s list (or Laval if none is within 300 km). The position is used only for
+            that choice, is not stored or logged, and is never sent to Open-Meteo or the AI provider. No browser
+            permission is requested.
+          </li>
+          <li>
             <strong>Open-Meteo</strong> receives the public coordinates and time zone of the city you select,
             to return a forecast. It never receives your IP address or browser headers from the app.
           </li>
