@@ -1,17 +1,16 @@
 'use client';
 
-import { useCallback, useReducer, useState } from 'react';
+import { useCallback, useMemo, useReducer, useState, type ReactNode } from 'react';
 import { cityDisplayName, type City } from '@/lib/cities';
-import { isExpired } from '@/lib/forecast';
+import { isExpired, nextDays } from '@/lib/forecast';
 import { applyChatPlan, boardId, stopChecking, type BoardPlan } from '@/lib/planner/board';
-import { useDateBounds } from '@/lib/planner/usePlanner';
 import { useForecast } from '@/lib/weather/useForecast';
-import { PlanBoard } from './board/PlanBoard';
+import { DayPlans, PlanTray } from './board/PlanChips';
 import { PlanningChat } from './chat/PlanningChat';
 import { CitySelector } from './CitySelector';
 import { CurrentPanel } from './ForecastView';
 import { LocationNotice } from './LocationNotice';
-import { WeatherWidget } from './WeatherWidget';
+import { WeatherWidget, type WeatherOverlay } from './WeatherWidget';
 
 type Board = { plans: BoardPlan[]; activeId: string | null };
 type BoardAction =
@@ -41,7 +40,6 @@ export function WeatherApp({
   const locatedCity = locatedCityId ? cities.find(c => c.id === locatedCityId) : undefined;
   // Loaded once for the selected city and shared by the chat, the board and the forecast panels.
   const forecast = useForecast(city?.id ?? defaultCityId);
-  const bounds = useDateBounds(city?.timeZone ?? 'UTC');
   const [board, dispatch] = useReducer(boardReducer, { plans: [], activeId: null });
   const [reopen, setReopen] = useState<{ plan: BoardPlan; seq: number } | null>(null);
   const cityId = city?.id;
@@ -61,6 +59,46 @@ export function WeatherApp({
     chooseCity(plan.cityId);
     setReopen(r => ({ plan, seq: (r?.seq ?? 0) + 1 }));
   }, [chooseCity]);
+
+  // The widget shows the active plan's day whenever that day changes or a plan is reopened;
+  // otherwise the visitor's own day choice stands.
+  const [widgetDate, setWidgetDate] = useState<string | undefined>(undefined);
+  const active = board.plans.find(p => p.id === board.activeId) ?? null;
+  const focusKey = active?.date ? `${active.id}|${active.date}|${reopen?.seq ?? 0}` : null;
+  const [lastFocus, setLastFocus] = useState<string | null>(null);
+  if (focusKey !== lastFocus) {
+    setLastFocus(focusKey);
+    if (active?.date) setWidgetDate(active.date);
+  }
+
+  const cityPlans = useMemo(() => board.plans.filter(p => p.cityId === cityId), [board.plans, cityId]);
+  const ready = forecast.state.status === 'ready' ? forecast.state.data : null;
+  const shownDates = useMemo(() => {
+    if (!ready || !city) return new Set<string>();
+    return new Set(nextDays(ready.daily, city.timeZone, forecast.now, ready.daily.length).map(d => d.date));
+  }, [ready, city, forecast.now]);
+  const timeZone = city?.timeZone ?? 'UTC';
+  const activeId = board.activeId;
+
+  // Plans drawn on the widget exactly as the planner returned them; nothing is scored here.
+  const overlay = useMemo<WeatherOverlay>(() => {
+    const dayBadges: Record<string, ReactNode> = {};
+    for (const date of shownDates) {
+      const dayPlans = cityPlans.filter(p => p.date === date);
+      if (dayPlans.length > 0) {
+        dayBadges[date] = <DayPlans plans={dayPlans} timeZone={timeZone} activeId={activeId} onOpen={onOpen} />;
+      }
+    }
+    const activePlan = cityPlans.find(p => p.id === activeId);
+    return {
+      windows: cityPlans.flatMap(p => (p.status === 'match' && p.start && p.end
+        ? [{ start: p.start, end: p.end, active: p.id === activeId }]
+        : [])),
+      limits: activePlan?.limits,
+      dayBadges,
+    };
+  }, [cityPlans, shownDates, timeZone, activeId, onOpen]);
+  const unplaced = cityPlans.filter(p => !p.date || !shownDates.has(p.date));
 
   if (!city) return null;
   const cityName = cityDisplayName(city);
@@ -86,19 +124,14 @@ export function WeatherApp({
         />
         <CurrentPanel state={forecast.state} now={forecast.now} cityName={cityName} onReload={forecast.reload} />
       </div>
-      <PlanBoard
-        cityName={cityName}
-        timeZone={city.timeZone}
-        bounds={bounds}
-        forecast={fresh}
-        plans={board.plans.filter(p => p.cityId === city.id)}
-        activeId={board.activeId}
-        onOpen={onOpen}
-      />
+      <PlanTray plans={unplaced} timeZone={city.timeZone} activeId={activeId} onOpen={onOpen} />
       <WeatherWidget
         forecast={forecast.state.status === 'ready' ? forecast.state.data : null}
         timeZone={city.timeZone}
         now={forecast.now}
+        selectedDate={widgetDate}
+        onSelectDate={setWidgetDate}
+        overlay={overlay}
       />
     </>
   );

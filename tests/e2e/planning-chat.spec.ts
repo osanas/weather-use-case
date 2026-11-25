@@ -203,7 +203,7 @@ test('takes a typed activity name that never leaves the browser, and a stepped d
 
   await expect(page.locator('.plan-card')).toContainText('Walk the dog');
   await expect(result(page)).toContainText('Walk the dog (Other activity limits)');
-  await expect(page.getByRole('region', { name: 'Planning board' }).getByRole('button', { name: /^Walk the dog, Tuesday, June 15/ }))
+  await expect(page.getByRole('button', { name: /^Walk the dog, Tuesday, June 15/ }))
     .toBeVisible();
 });
 

@@ -72,15 +72,8 @@ export const messages = {
     timeline: (from: string, to: string) => `Planned from ${from} to ${to}`,
   },
   board: {
-    heading: 'Planning board',
-    title: (city: string) => `Your week in ${city}`,
-    intro: 'Your plans appear here as you chat with Pico. Select one to open it in the chat again.',
-    days: 'Forecast days',
-    legend: { window: 'Planned window', rain: 'Rain chance', wind: 'Wind', limit: 'Activity limit' },
-    unscheduled: 'Not scheduled yet',
-    noForecast: 'Forecast unavailable. Plans are still shown.',
-    noPlans: 'No plan yet',
-    rain: (value: string) => `${value} rain`,
+    heading: 'Your plans',
+    dayPlans: 'Plans for this day',
     hours: (h: number) => `${h} h`,
     status: {
       draft: 'finding a time',

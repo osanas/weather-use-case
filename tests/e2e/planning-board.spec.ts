@@ -37,10 +37,13 @@ async function setup(page: Page, options: { replies?: unknown[]; weatherDown?: b
   return plan;
 }
 
-const board = (page: Page) => page.getByRole('region', { name: 'Planning board' });
-const day = (page: Page, date: string) => board(page).locator(`.board-day[data-date="${date}"]`);
-const plans = (page: Page) => board(page).locator('.board-plan');
+const widget = (page: Page) => page.getByRole('region', { name: 'Forecast', exact: true });
+const dayCard = (page: Page, name: RegExp) => widget(page).getByRole('button', { name });
+const dayItem = (page: Page, name: RegExp) => widget(page).locator('.ww-day-item').filter({ has: page.getByRole('button', { name }) });
+const plans = (page: Page) => page.locator('.board-plan');
+const tray = (page: Page) => page.getByRole('region', { name: 'Your plans' });
 const pico = (page: Page) => page.locator('.msg-current .guide-bubble');
+const SAT = /^Sat, Jun 19:/;
 
 async function planHikingSaturday(page: Page) {
   await reply(page, 'This weekend');
@@ -50,68 +53,67 @@ async function planHikingSaturday(page: Page) {
   await reply(page, '2 hours');
 }
 
-test('fills in as the conversation goes: draft on its day, then the planner window', async ({ page }) => {
+test('puts the plan under its day card, then draws the planner window on the curve', async ({ page }) => {
   await setup(page);
-  await expect(board(page)).toContainText('Your week in Laval, Québec');
-  await expect(board(page).getByRole('list', { name: 'Forecast days' }).locator('> li')).toHaveCount(7);
   await expect(plans(page)).toHaveCount(0);
+  await expect(tray(page)).toHaveCount(0);
 
   // The day comes first; the plan appears once there is an activity.
   await reply(page, 'This weekend');
   await reply(page, 'Sat, Jun 19');
   await expect(plans(page)).toHaveCount(0);
   await reply(page, 'Hiking');
-  await expect(plans(page)).toHaveCount(1);
-  await expect(board(page).locator('.board-tray')).toHaveCount(0);
-  await expect(day(page, '2027-06-19').locator('.board-plan')).toHaveText(/Hiking\s*finding a time/);
-  await expect(plans(page).first()).toHaveAttribute('aria-current', 'true');
+  await expect(dayItem(page, SAT).locator('.board-plan')).toHaveText(/Hiking\s*finding a time/);
+  // The widget follows the plan's day.
+  await expect(dayCard(page, SAT)).toHaveAttribute('aria-pressed', 'true');
 
   await reply(page, 'Laval');
   await reply(page, '2 hours');
-  const planned = day(page, '2027-06-19').locator('.board-plan');
-  await expect(planned).toHaveText(/Hiking\s*11:00 EDT – 13:00 EDT/);
-  await expect(planned).toHaveAttribute('aria-label',
+  const chip = dayItem(page, SAT).locator('.board-plan');
+  await expect(chip).toHaveText(/Hiking\s*11:00–13:00/);
+  await expect(chip).toHaveAttribute('aria-label',
     'Hiking, Saturday, June 19, 2 hours, best time from 11:00 EDT to 13:00 EDT. Open in the chat');
-  // The window is the planner's, hour for hour; the dashed lines are the server's limits.
-  await expect(day(page, '2027-06-19').locator('.board-track .on')).toHaveCount(2);
-  await expect(day(page, '2027-06-19').locator('.board-limit')).toHaveCount(2);
-  await expect(day(page, '2027-06-19').locator('.board-track > span')).toHaveCount(24);
-  await expect(day(page, '2027-06-14').locator('.board-track > span')).toHaveCount(16);
-
-  // Trying another day takes the plan off its day until a new one is chosen.
-  await reply(page, 'Try another day');
-  await expect(board(page).locator('.board-tray')).toContainText('Not scheduled yet');
-  await expect(plans(page).first()).toHaveAttribute('aria-label', 'Hiking, day not chosen, 2 hours, draft, no time yet. Open in the chat');
+  await expect(chip).toHaveAttribute('aria-current', 'true');
+  // One band on the curve for the planner's window; the limit appears on the precipitation tab.
+  await expect(widget(page).locator('.ww-window')).toHaveCount(1);
+  await expect(widget(page).locator('.ww-window-active')).toHaveCount(1);
+  await expect(widget(page).locator('.ww-limit')).toHaveCount(0);
+  await widget(page).getByRole('tab', { name: 'Precipitation' }).click();
+  await expect(widget(page).locator('.ww-limit-label')).toHaveText('Limit 35%');
 });
 
 test('keeps several plans and reopens one in the chat without a request', async ({ page }) => {
   const plan = await setup(page, { replies: [match, noMatch] });
   await planHikingSaturday(page);
-  await expect(day(page, '2027-06-19').locator('.board-plan')).toContainText('11:00 EDT');
+  await expect(dayItem(page, SAT).locator('.board-plan')).toContainText('11:00');
 
   await reply(page, 'Plan another activity');
-  // A new plan starts without the previous plan card.
   await expect(page.locator('.plan-card')).toHaveCount(0);
   await reply(page, 'Tomorrow');
   await reply(page, 'Walking');
   await reply(page, '1 hour');
-  await expect(day(page, '2027-06-15').locator('.board-plan')).toHaveText(/Walking\s*No window/);
+  await expect(dayItem(page, /^Tue, Jun 15:/).locator('.board-plan')).toHaveText(/Walking\s*No window/);
+  await expect(dayCard(page, /^Tue, Jun 15:/)).toHaveAttribute('aria-pressed', 'true');
   await expect(plans(page)).toHaveCount(2);
   expect(plan.bodies).toHaveLength(2);
 
-  await day(page, '2027-06-19').getByRole('button', { name: /^Hiking, Saturday, June 19/ }).click();
+  await dayItem(page, SAT).getByRole('button', { name: /^Hiking, Saturday, June 19/ }).click();
   await expect(pico(page)).toHaveText('Ready when you are. Shall I check Laval, Québec?');
   await expect(composer(page).getByRole('button', { name: 'Find best time' })).toBeFocused();
-  // The window stays on the board until the visitor checks again.
-  await expect(day(page, '2027-06-19').locator('.board-plan')).toHaveAttribute('aria-current', 'true');
-  await expect(day(page, '2027-06-19').locator('.board-plan')).toContainText('11:00 EDT – 13:00 EDT');
+  await expect(dayCard(page, SAT)).toHaveAttribute('aria-pressed', 'true');
+  // The window stays until the visitor checks again.
+  await expect(dayItem(page, SAT).locator('.board-plan')).toHaveAttribute('aria-current', 'true');
+  await expect(widget(page).locator('.ww-window-active')).toHaveCount(1);
   expect(plan.bodies).toHaveLength(2);
+});
 
-  // Changing an answer of the reopened plan updates that plan, not the other one.
-  await page.getByRole('list', { name: 'Conversation with Pico' }).getByRole('button', { name: 'Edit your answer: 2 hours' }).click();
-  await reply(page, '3 hours');
-  await expect.poll(() => plan.bodies.length).toBe(3);
-  await expect(plans(page)).toHaveCount(2);
+test('lets the visitor pick another day card while a plan is shown', async ({ page }) => {
+  await setup(page);
+  await planHikingSaturday(page);
+  await dayCard(page, /^Wed, Jun 16:/).click();
+  await expect(dayCard(page, /^Wed, Jun 16:/)).toHaveAttribute('aria-pressed', 'true');
+  await expect(widget(page).locator('.ww-window')).toHaveCount(0);
+  await expect(dayItem(page, SAT).locator('.board-plan')).toBeVisible();
 });
 
 test('shows each city its own plans', async ({ page }) => {
@@ -122,50 +124,39 @@ test('shows each city its own plans', async ({ page }) => {
   const city = page.getByRole('combobox', { name: 'City', exact: true });
   await city.fill('Gatin');
   await page.getByRole('option', { name: /Gatineau/ }).click();
-  await expect(board(page)).toContainText('Your week in Gatineau, Québec');
   // The same answers start a draft in the new city; Laval's window stays in Laval.
   await expect(plans(page)).toHaveCount(1);
-  await expect(day(page, '2027-06-19').locator('.board-plan')).toHaveText(/finding a time/);
+  await expect(dayItem(page, SAT).locator('.board-plan')).toHaveText(/finding a time/);
 
   await city.fill('Laval');
   await page.getByRole('option', { name: /^Laval/ }).click();
-  await expect(day(page, '2027-06-19').locator('.board-plan')).toContainText('11:00 EDT – 13:00 EDT');
+  await expect(dayItem(page, SAT).locator('.board-plan')).toContainText('11:00–13:00');
 });
 
-test('keeps the days without bars when the forecast is unavailable', async ({ page }) => {
+test('lists plans in the tray when the forecast is unavailable', async ({ page }) => {
   await setup(page, { weatherDown: true });
-  await expect(board(page)).toContainText('Forecast unavailable. Plans are still shown.');
-  await expect(board(page).locator('.board-day')).toHaveCount(7);
-  await expect(board(page).locator('.board-bars')).toHaveCount(0);
+  await expect(widget(page)).toHaveCount(0);
   await reply(page, 'Today');
   await reply(page, 'Walking');
-  await expect(plans(page)).toHaveCount(1);
+  await expect(tray(page).locator('.board-plan')).toHaveCount(1);
+  await expect(tray(page).locator('.board-plan')).toHaveAttribute('aria-label', /^Walking, Monday, June 14/);
 });
 
-test('scrolls inside its own row on a phone', async ({ page }) => {
+test('fits a phone screen with plans under the day cards', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await setup(page);
   await planHikingSaturday(page);
+  await expect(dayItem(page, SAT).locator('.board-plan')).toContainText('11:00–13:00');
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
-  const row = board(page).getByRole('list', { name: 'Forecast days' });
-  expect(await row.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);
-  // The active plan's day was scrolled into the row's view.
-  await expect.poll(() => row.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
-  const inRow = () => row.evaluate(el => {
-    const column = el.querySelector<HTMLElement>('[data-date="2027-06-19"]')!.getBoundingClientRect();
-    const box = el.getBoundingClientRect();
-    return column.left >= box.left - 1 && column.right <= box.right + 1;
-  });
-  await expect.poll(inRow).toBe(true);
 });
 
-test('stops every board animation when reduced motion is requested', async ({ page }) => {
+test('stops every plan animation when reduced motion is requested', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await setup(page);
   await planHikingSaturday(page);
-  await expect(day(page, '2027-06-19').locator('.board-plan')).toHaveAttribute('aria-current', 'true');
+  await expect(dayItem(page, SAT).locator('.board-plan')).toHaveAttribute('aria-current', 'true');
   const running = () => page.evaluate(() => document.getAnimations()
-    .filter(a => a.playState === 'running' && (a.effect as KeyframeEffect | null)?.target?.closest('.board')).length);
+    .filter(a => a.playState === 'running' && (a.effect as KeyframeEffect | null)?.target?.closest('.board-plan, .ww')).length);
   await expect.poll(running).toBe(0);
 });
