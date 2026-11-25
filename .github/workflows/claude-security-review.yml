@@ -1,0 +1,49 @@
+name: Claude security review
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-security-review-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Review the pull request diff for security issues
+    # Only pull requests from this repository: the reviewer reads untrusted diff text and
+    # should not run on fork pull requests.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    steps:
+      - name: Report a missing API key
+        if: env.HAS_ANTHROPIC_KEY != 'true'
+        run: echo "::notice::ANTHROPIC_API_KEY is not set; the Claude security review is skipped."
+
+      - name: Checkout pull request head
+        if: env.HAS_ANTHROPIC_KEY == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Run Claude Code security review
+        if: env.HAS_ANTHROPIC_KEY == 'true'
+        uses: anthropics/claude-code-security-review@0c6a49f1fa56a1d472575da86a94dbc1edb78eda # main, 2026-11-25
+        with:
+          comment-pr: true
+          upload-results: true
+          claudecode-timeout: 20
+          exclude-directories: node_modules,.next,public/data,test-results,playwright-report
+          custom-security-scan-instructions: .github/security-review-instructions.md
+          claude-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

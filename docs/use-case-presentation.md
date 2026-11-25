@@ -137,8 +137,11 @@ flowchart TB
     PR --> OSV["OSV-Scanner (PR diff)"]
     PR --> TR["Trivy"]
     PR --> AL["actionlint"]
-    MAIN["Push to main"] --> CI & GL & OSV2["OSV-Scanner (full)"] & TR & AL
-    WEEK["Weekly schedule"] --> OSV2 & TR & ZAP["OWASP ZAP baseline<br/>on the deployed URL"]
+    PR --> DR["Dependency review"]
+    PR --> CSR["Claude security review"]
+    PR --> CQL["CodeQL (default setup)"]
+    MAIN["Push to main"] --> CI & GL & OSV2["OSV-Scanner (full)"] & TR & AL & CQL & SC["OpenSSF Scorecard"]
+    WEEK["Weekly schedule"] --> OSV2 & TR & SC & ZAP["OWASP ZAP baseline<br/>on the deployed URL"]
     DB["Dependabot (weekly)"] -->|"update PRs"| PR
 ```
 
@@ -150,9 +153,13 @@ flowchart TB
 | **Trivy** (`trivy.yml`) | PR, push to `main`, weekly, manual | Scans the repository files for HIGH or CRITICAL vulnerable dependencies and misconfigurations. | A second, independent view of dependencies plus configuration issues. | A high-severity finding to fix or justify. |
 | **actionlint** (`actionlint.yml`) | PR, push to `main`, manual | Lints the workflow files themselves (syntax, expressions, shell). | Broken or unsafe workflows silently weaken every other check. | A workflow file is invalid or risky. |
 | **OWASP ZAP baseline** (`zap-baseline.yml`) | Weekly, manual | Passive scan of the deployed site (missing security headers, cookie flags, information leaks). The target comes from the `ZAP_TARGET_URL` repository secret or a manual input. Reports without failing the run. | Tests what is actually deployed, not just the code. | Findings to review in the run report. |
-| **Dependabot** (`dependabot.yml`) | Weekly | Opens PRs to update npm packages and GitHub Actions versions. | Keeps dependencies current; each update goes through all checks above. | — |
+| **CodeQL** (GitHub default setup) | PR, push to `main`, weekly | Static analysis of the TypeScript code and the workflows (injection, unsafe data flow, workflow risks). | Finds vulnerable code patterns that dependency scanners cannot see. | A code-scanning alert to fix or dismiss with a reason. |
+| **Dependency review** (`dependency-review.yml`) | PR | Compares the dependencies of the PR with `main` and fails on any added dependency with a HIGH or CRITICAL advisory. | Stops a vulnerable package at the PR that introduces it. | The PR adds a vulnerable dependency: pick another version or package. |
+| **Claude security review** (`claude-security-review.yml`) | PR from this repository | Claude reviews the PR diff for security issues, with the project boundaries in `.github/security-review-instructions.md` (server-only keys, catalogue IDs, fixed read-only tools, allowlisted logs), and comments its findings. Skipped when the `ANTHROPIC_API_KEY` secret is absent; not run on fork PRs. The diff is sent to Anthropic: source code only, no user data. | Automates the separate security review the project instructions ask for on every change. | Findings to fix or answer in the PR. It informs the reviewer and is not a required check. |
+| **OpenSSF Scorecard** (`scorecard.yml`) | Push to `main`, weekly, manual | Scores supply-chain practices (pinned actions, token permissions, branch protection, code review, security policy) and publishes the score shown in the README badge. | Public, independent evidence of how the repository is maintained. | A lower score with the failing practice listed in code scanning. |
+| **Dependabot** (`dependabot.yml`) | Weekly | Opens PRs to update npm packages and GitHub Actions versions, including SHA-pinned actions. | Keeps dependencies current; each update goes through all checks above. | — |
 
-All workflows use read-only permissions by default, `persist-credentials: false` on checkout, pinned tool versions and timeouts. Only OSV-Scanner may write security events.
+All workflows use read-only permissions by default, `persist-credentials: false` on checkout, third-party actions pinned to full commit SHAs, pinned tool image versions and timeouts. Only OSV-Scanner and Scorecard may write security events, and only the Claude security review may comment on pull requests. Vulnerabilities are reported privately as described in [SECURITY.md](../SECURITY.md); `.github/CODEOWNERS` names the maintainer as reviewer.
 
 ## 6. Security and privacy controls
 
