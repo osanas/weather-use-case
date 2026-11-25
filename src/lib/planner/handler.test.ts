@@ -219,6 +219,8 @@ describe('POST /api/plan', () => {
 
   it.each([
     ['an unknown city', { ...criteria, cityId: 'unknown' }, ['cityId']],
+    ['a well-formed city ID outside the catalogue', { ...criteria, cityId: 'gn-999999999' }, ['cityId']],
+    ['a curated-looking ID outside the catalogue', { ...criteria, cityId: 'atlantis-qc' }, ['cityId']],
     ['a five-hour duration', { ...criteria, durationHours: 5 }, ['durationHours']],
     ['an unknown field', { ...criteria, note: 'free text' }, ['unknown_field']],
     ['a client-supplied wind limit', { ...criteria, maxWindKmh: 200 }, ['unknown_field']],

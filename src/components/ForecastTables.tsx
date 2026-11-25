@@ -7,6 +7,7 @@ import {
   formatWind,
 } from '@/lib/format';
 import type { DailySummary, HourlyPoint } from '@/lib/weather/types';
+import { useUnits } from './Units';
 
 /*
  * Visually hidden data tables behind the weather widget (WX-02). Screen readers and the
@@ -15,6 +16,7 @@ import type { DailySummary, HourlyPoint } from '@/lib/weather/types';
  */
 
 export function HourlyTable({ hours, timeZone }: { hours: HourlyPoint[]; timeZone: string }) {
+  const units = useUnits();
   if (hours.length === 0) return <p className="sr-only">No upcoming hourly forecast is available.</p>;
   return (
     <div className="sr-only">
@@ -34,9 +36,9 @@ export function HourlyTable({ hours, timeZone }: { hours: HourlyPoint[]; timeZon
             <tr key={hour.time}>
               <th scope="row">{formatHour(hour.time, timeZone)}</th>
               <td>{describeWeatherCode(hour.weatherCode)}</td>
-              <td>{formatTemperature(hour.temperatureC)}</td>
+              <td>{formatTemperature(hour.temperatureC, units)}</td>
               <td>{formatPercent(hour.precipitationProbability)}</td>
-              <td>{formatWind(hour.windKmh)}</td>
+              <td>{formatWind(hour.windKmh, units)}</td>
             </tr>
           ))}
         </tbody>
@@ -46,6 +48,7 @@ export function HourlyTable({ hours, timeZone }: { hours: HourlyPoint[]; timeZon
 }
 
 export function DailyTable({ days, today }: { days: DailySummary[]; today: string }) {
+  const units = useUnits();
   if (days.length === 0) return <p className="sr-only">No daily forecast is available.</p>;
   return (
     <div className="sr-only">
@@ -67,8 +70,8 @@ export function DailyTable({ days, today }: { days: DailySummary[]; today: strin
                 {day.date === today ? `Today, ${formatDay(day.date)}` : formatDay(day.date)}
               </th>
               <td>{describeWeatherCode(day.weatherCode)}</td>
-              <td>{formatTemperature(day.minC)}</td>
-              <td>{formatTemperature(day.maxC)}</td>
+              <td>{formatTemperature(day.minC, units)}</td>
+              <td>{formatTemperature(day.maxC, units)}</td>
               <td>{formatPercent(day.precipitationProbability)}</td>
             </tr>
           ))}

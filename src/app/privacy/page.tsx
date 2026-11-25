@@ -29,9 +29,10 @@ export default function PrivacyPage() {
       <section aria-labelledby="not-collected">
         <h2 id="not-collected">What the app does not collect</h2>
         <p>
-          There are no accounts, no browser geolocation, no street addresses, no free-text fields, no
+          There are no accounts, no browser geolocation, no street addresses, no free text sent from your browser, no
           analytics, no advertising, no tracking cookies and no history of your searches. City search runs in
-          your browser; your keystrokes are not sent anywhere.
+          your browser on a list of cities downloaded from this site; your keystrokes are not sent anywhere.
+          If you switch between °C and °F, that choice is saved in your browser only and never sent.
         </p>
       </section>
 

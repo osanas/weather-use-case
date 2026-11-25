@@ -18,6 +18,7 @@ import { PixelArt } from '../world/PixelArt';
 import { VISITOR } from '@/lib/world/avatar';
 import { DatePicker } from './DatePicker';
 import { PlanCard } from './PlanCard';
+import { useUnits } from '../Units';
 
 let conversations = 0;
 /** A new conversation id: one per plan, kept while its answers are edited. */
@@ -29,7 +30,7 @@ const FEATURED = ['montreal-qc', 'laval-qc', 'quebec-qc'];
 type Props = {
   city: City;
   cities: readonly City[];
-  onSelectCity: (cityId: string) => void;
+  onSelectCity: (city: City) => void;
   /** Daily forecast for the selected city, or `null` while missing or expired. */
   days: readonly DailySummary[] | null;
   /** Receives the conversation's plan for the board on every change; `null` before an activity. */
@@ -53,6 +54,7 @@ export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, r
   const currentRef = useRef<HTMLDivElement>(null);
   const focusNext = useRef(false);
   const ids = useId();
+  const units = useUnits();
   const [conversationId, setConversationId] = useState(newConversation);
   const [reopened, setReopened] = useState(0);
 
@@ -72,7 +74,7 @@ export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, r
   });
 
   const view = chatView({
-    answers, cityName, cityChoices, bounds: planner.bounds, days, errors: planner.errors, request: planner.request,
+    answers, cityName, cityChoices, bounds: planner.bounds, days, errors: planner.errors, request: planner.request, units,
   });
 
   // The board follows the conversation: draft, day, then the planner's outcome.
@@ -118,7 +120,7 @@ export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, r
     let target = city;
     if (choice.cityId && choice.cityId !== city.id) {
       target = cities.find(c => c.id === choice.cityId) ?? city;
-      onSelectCity(target.id);
+      onSelectCity(target);
     }
     answer({ ...answers, ...choice.answer }, target, choice.submit);
   }
@@ -227,11 +229,10 @@ export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, r
               <div className="composer-input">
                 <CitySelector
                   cities={cities}
-                  selectedId=""
+                  selected={null}
                   label={t.city.other}
-                  onSelect={id => {
-                    const target = cities.find(c => c.id === id) ?? city;
-                    if (target.id !== city.id) onSelectCity(target.id);
+                  onSelect={target => {
+                    if (target.id !== city.id) onSelectCity(target);
                     answer({ ...answers, city: true }, target);
                   }}
                 />

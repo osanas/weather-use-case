@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { getCityById } from '@/lib/cities';
+import { isCityIdFormat } from '@/lib/cities';
 import { ACTIVITIES } from './types';
 
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -21,7 +21,8 @@ export function isCalendarDate(value: string): boolean {
  */
 export const planRequestSchema = z
   .object({
-    cityId: z.string().refine(id => getCityById(id) !== undefined, 'Unknown city.'),
+    // Shape only here (this schema also runs in the browser); the server resolves the ID in the catalogue.
+    cityId: z.string().refine(isCityIdFormat, 'Unknown city.'),
     activity: z.enum(ACTIVITIES),
     date: z.string().refine(isCalendarDate, 'Date must be a valid YYYY-MM-DD date.'),
     durationHours: z.number().int().min(1).max(4),

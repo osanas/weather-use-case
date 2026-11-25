@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useReducer, useState } from 'react';
+import { useCallback, useMemo, useReducer, useState } from 'react';
 import { cityDisplayName, type City } from '@/lib/cities';
 import { isExpired } from '@/lib/forecast';
 import { applyChatPlan, boardId, stopChecking, type BoardPlan } from '@/lib/planner/board';
@@ -27,20 +27,27 @@ function boardReducer(state: Board, action: BoardAction): Board {
 
 export function WeatherApp({
   cities,
-  defaultCityId,
+  defaultCity,
   locatedCityId = null,
 }: {
+  /** Featured cities bundled with the page; any catalogue city can be chosen through search. */
   cities: readonly City[];
-  defaultCityId: string;
+  defaultCity: City;
   /** Set only when the default came from the visitor's approximate location. */
   locatedCityId?: string | null;
 }) {
-  const [selectedId, setSelectedId] = useState(defaultCityId);
+  const [selectedId, setSelectedId] = useState(defaultCity.id);
   const [locationNoticeOpen, setLocationNoticeOpen] = useState(locatedCityId !== null);
-  const city = cities.find(c => c.id === selectedId) ?? cities[0];
-  const locatedCity = locatedCityId ? cities.find(c => c.id === locatedCityId) : undefined;
+  // Featured cities plus every catalogue city chosen on this page, so plans can find theirs again.
+  const [chosen, setChosen] = useState<readonly City[]>(() => [defaultCity]);
+  const known = useMemo(
+    () => [...cities, ...chosen.filter(c => !cities.some(f => f.id === c.id))],
+    [cities, chosen],
+  );
+  const city = known.find(c => c.id === selectedId) ?? defaultCity;
+  const locatedCity = locatedCityId ? known.find(c => c.id === locatedCityId) : undefined;
   // Loaded once for the selected city and shared by the chat, the board and the forecast panels.
-  const forecast = useForecast(city?.id ?? defaultCityId);
+  const forecast = useForecast(city.id);
   const bounds = useDateBounds(city?.timeZone ?? 'UTC');
   const [board, dispatch] = useReducer(boardReducer, { plans: [], activeId: null });
   const [reopen, setReopen] = useState<{ plan: BoardPlan; seq: number } | null>(null);
@@ -51,16 +58,18 @@ export function WeatherApp({
   }, [cityId]);
 
   // Any city the visitor picks (search, chat or plan) replaces the located default and closes the notice.
-  const chooseCity = useCallback((id: string) => {
-    setSelectedId(id);
+  const chooseCity = useCallback((next: City) => {
+    setChosen(list => (list.some(c => c.id === next.id) ? list : [...list, next]));
+    setSelectedId(next.id);
     setLocationNoticeOpen(false);
   }, []);
 
   const onOpen = useCallback((plan: BoardPlan) => {
     dispatch({ type: 'reopen', id: plan.id });
-    chooseCity(plan.cityId);
+    setSelectedId(plan.cityId);
+    setLocationNoticeOpen(false);
     setReopen(r => ({ plan, seq: (r?.seq ?? 0) + 1 }));
-  }, [chooseCity]);
+  }, []);
 
   if (!city) return null;
   const cityName = cityDisplayName(city);
@@ -74,7 +83,7 @@ export function WeatherApp({
         <LocationNotice cityName={cityDisplayName(locatedCity)} onDismiss={() => setLocationNoticeOpen(false)} />
       )}
       {/* Keyed so a city chosen in the chat also shows here. */}
-      <CitySelector key={city.id} cities={cities} selectedId={city.id} onSelect={chooseCity} />
+      <CitySelector key={city.id} cities={cities} selected={city} onSelect={chooseCity} />
       <div className="top-grid">
         <PlanningChat
           city={city}

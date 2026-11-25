@@ -32,6 +32,8 @@ import {
 import { ICONS, iconForCode } from '@/lib/world/icons';
 import { DailyTable, HourlyTable } from './ForecastTables';
 import { PixelArt } from './world/PixelArt';
+import { useUnits } from './Units';
+import { TEMPERATURE_UNIT, WIND_UNIT, type Units } from '@/lib/units';
 
 /** What the planning board (WEA-18) draws on the widget. Drawn as given, never scored here. */
 export type WeatherOverlay = {
@@ -51,12 +53,10 @@ type Props = {
 };
 
 const LABEL: Record<Metric, string> = { temperature: 'Temperature', precipitation: 'Precipitation', wind: 'Wind' };
-const UNIT: Record<Metric, string> = { temperature: '°C', precipitation: '% chance', wind: 'km/h' };
-const FULL_VALUE: Record<Metric, (value: number | null) => string> = {
-  temperature: formatTemperature,
-  precipitation: formatPercent,
-  wind: formatWind,
-};
+const unitLabel = (metric: Metric, units: Units) =>
+  metric === 'temperature' ? TEMPERATURE_UNIT[units] : metric === 'wind' ? WIND_UNIT[units] : '% chance';
+const fullValue = (metric: Metric, value: number | null, units: Units) =>
+  metric === 'temperature' ? formatTemperature(value, units) : metric === 'wind' ? formatWind(value, units) : formatPercent(value);
 
 // Curve grid in chart units: one 12-unit column per hour, values between TOP and BOTTOM.
 const COL = 12;
@@ -76,6 +76,7 @@ function Curve({ hours, metric, timeZone, overlay }: {
   timeZone: string;
   overlay?: WeatherOverlay;
 }) {
+  const units = useUnits();
   const values = metricValues(hours, metric);
   const limit = limitFor(metric, overlay?.limits);
   const domain = metricDomain(values, metric, limit);
@@ -119,13 +120,13 @@ function Curve({ hours, metric, timeZone, overlay }: {
           if (row === null || row === undefined) return null;
           return (
             <span key={mark.index} className={`ww-value ${rank(mark)}`} style={at(columnCentre(mark.index), row / HEIGHT)}>
-              {compactValue(values[mark.index] ?? null, metric)}
+              {compactValue(values[mark.index] ?? null, metric, units)}
             </span>
           );
         })}
         {limitRow === null ? null : (
           <span className="ww-limit-label" style={at(1, limitRow / HEIGHT)}>
-            Limit {compactValue(limit, metric)}{metric === 'wind' ? ' km/h' : ''}
+            Limit {compactValue(limit, metric, units)}{metric === 'wind' ? ` ${WIND_UNIT[units]}` : ''}
           </span>
         )}
       </div>
@@ -143,6 +144,7 @@ function Curve({ hours, metric, timeZone, overlay }: {
 
 /** The selected day's values for the chosen tab, for screen readers. */
 function CurveTable({ hours, metric, day, timeZone }: { hours: HourlyPoint[]; metric: Metric; day: DailySummary; timeZone: string }) {
+  const units = useUnits();
   const values = metricValues(hours, metric);
   return (
     <div className="sr-only">
@@ -158,7 +160,7 @@ function CurveTable({ hours, metric, day, timeZone }: { hours: HourlyPoint[]; me
           {hours.map((hour, i) => (
             <tr key={hour.time}>
               <th scope="row">{formatHour(hour.time, timeZone)}</th>
-              <td>{FULL_VALUE[metric](values[i] ?? null)}</td>
+              <td>{fullValue(metric, values[i] ?? null, units)}</td>
             </tr>
           ))}
         </tbody>
@@ -172,17 +174,18 @@ function Reading({ text, className }: { text: string; className: string }) {
 }
 
 function DayHeader({ day, hours, today }: { day: DailySummary; hours: HourlyPoint[]; today: string }) {
+  const units = useUnits();
   const wind = maxValue(hours.map(hour => hour.windKmh));
   return (
     <div className="ww-head">
       <PixelArt grid={ICONS[iconForCode(day.weatherCode)]} className="ww-head-icon" />
       <div className="ww-head-temps">
-        <Reading text={formatTemperature(day.maxC)} className="ww-high" />
-        <span className="ww-low">Low <Reading text={formatTemperature(day.minC)} className="ww-low-value" /></span>
+        <Reading text={formatTemperature(day.maxC, units)} className="ww-high" />
+        <span className="ww-low">Low <Reading text={formatTemperature(day.minC, units)} className="ww-low-value" /></span>
       </div>
       <dl className="ww-stats">
         <div><dt>Precipitation</dt><dd>{formatPercent(day.precipitationProbability)}</dd></div>
-        <div><dt>Wind</dt><dd>{wind === null ? formatWind(null) : `Up to ${formatWind(wind)}`}</dd></div>
+        <div><dt>Wind</dt><dd>{wind === null ? formatWind(null) : `Up to ${formatWind(wind, units)}`}</dd></div>
       </dl>
       <div className="ww-when">
         <p className="ww-weekday">{day.date === today ? 'Today' : weekdayOf(day.date, 'long')}</p>
@@ -193,9 +196,9 @@ function DayHeader({ day, hours, today }: { day: DailySummary; hours: HourlyPoin
   );
 }
 
-function dayLabel(day: DailySummary, today: string): string {
+function dayLabel(day: DailySummary, today: string, units: Units): string {
   const name = day.date === today ? `Today, ${formatDay(day.date)}` : formatDay(day.date);
-  return `${name}: ${describeWeatherCode(day.weatherCode)}, high ${formatTemperature(day.maxC)}, low ${formatTemperature(day.minC)}`;
+  return `${name}: ${describeWeatherCode(day.weatherCode)}, high ${formatTemperature(day.maxC, units)}, low ${formatTemperature(day.minC, units)}`;
 }
 
 /**
@@ -207,6 +210,7 @@ function dayLabel(day: DailySummary, today: string): string {
 export const WeatherWidget = memo(function WeatherWidget({ forecast, timeZone, now, selectedDate, onSelectDate, overlay }: Props) {
   const [ownDate, setOwnDate] = useState<string | null>(null);
   const [metric, setMetric] = useState<Metric>('temperature');
+  const units = useUnits();
   const tabs = useRef<Partial<Record<Metric, HTMLButtonElement | null>>>({});
   const id = useId();
   if (!forecast) return null;
@@ -262,7 +266,7 @@ export const WeatherWidget = memo(function WeatherWidget({ forecast, timeZone, n
       {/* Named "Hourly chart" rather than by its tab, so "Temperature" keeps naming only the current reading (WX-02). */}
       <div className="ww-panel" role="tabpanel" id={panelId} aria-label="Hourly chart" tabIndex={0}>
         {day ? (
-          <p className="ww-caption" aria-hidden="true">{LABEL[metric]} ({UNIT[metric]}) by hour, {formatDay(day.date)}</p>
+          <p className="ww-caption" aria-hidden="true">{LABEL[metric]} ({unitLabel(metric, units)}) by hour, {formatDay(day.date)}</p>
         ) : null}
         {day && hours.length > 0 ? (
           <>
@@ -284,14 +288,14 @@ export const WeatherWidget = memo(function WeatherWidget({ forecast, timeZone, n
                   type="button"
                   className="ww-day"
                   aria-pressed={d.date === day?.date}
-                  aria-label={dayLabel(d, today)}
+                  aria-label={dayLabel(d, today, units)}
                   onClick={() => select(d.date)}
                 >
                   <span className="ww-day-name">{d.date === today ? 'Today' : weekdayOf(d.date, 'short')}</span>
                   <PixelArt grid={ICONS[iconForCode(d.weatherCode)]} className="ww-day-icon" />
                   <span className="ww-day-temps">
-                    <strong>{compactValue(d.maxC, 'temperature') || '–'}</strong>
-                    <span>{compactValue(d.minC, 'temperature') || '–'}</span>
+                    <strong>{compactValue(d.maxC, 'temperature', units) || '–'}</strong>
+                    <span>{compactValue(d.minC, 'temperature', units) || '–'}</span>
                   </span>
                 </button>
                 {badge === undefined || badge === null || badge === false ? null : <div className="ww-badge">{badge}</div>}

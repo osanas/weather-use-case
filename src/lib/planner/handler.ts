@@ -2,7 +2,8 @@ import { readAgentConfig } from '@/lib/agent/config';
 import { createGeminiModel } from '@/lib/agent/gemini';
 import { createGroqModel, type ChatModel } from '@/lib/agent/groq';
 import { runPlanningAgent, type AgentFailure } from '@/lib/agent/orchestrator';
-import { cityDisplayName, getCityById, type City } from '@/lib/cities';
+import { findCity } from '@/lib/catalogue';
+import { cityDisplayName, type City } from '@/lib/cities';
 import type { ForecastCache } from '@/lib/weather/cache';
 import { fetchForecast, ProviderError, type ProviderOutcome } from '@/lib/weather/open-meteo';
 import { sharedForecastCache } from '@/lib/weather/handler';
@@ -132,13 +133,16 @@ export function createPlanHandler(deps: PlanHandlerDeps) {
     if (!parsed.ok) {
       return reject(400, 'invalid_criteria', { error: 'invalid_criteria', message: INVALID_MESSAGE, fields: parsed.fields });
     }
+    const city = findCity(parsed.request.cityId);
+    if (!city) {
+      return reject(400, 'invalid_criteria', { error: 'invalid_criteria', message: INVALID_MESSAGE, fields: ['cityId'] });
+    }
     const thresholds = resolveThresholds(deps.thresholds, parsed.request.activity);
     if (!thresholds) {
       const unavailable: PlanResponse = { outcome: 'planning_unavailable', reason: 'thresholds_not_defined' };
       return Response.json(unavailable, { headers: NO_STORE });
     }
     const criteria = { ...parsed.request, ...thresholds };
-    const city = getCityById(criteria.cityId)!;
 
     let forecast = deps.cache.get(city.id);
     if (!forecast) {

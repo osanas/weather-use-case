@@ -9,6 +9,7 @@ import { activityName, relativeDay } from '@/lib/planner/conversation';
 import type { DateBounds } from '@/lib/planner/form';
 import type { DailySummary, HourlyPoint } from '@/lib/weather/types';
 import './board.css';
+import { useUnits } from '../Units';
 
 /** Display scale for the wind bars only; it is not a limit or a judgment. */
 const WIND_SCALE_KMH = 60;
@@ -75,6 +76,7 @@ function PlanChip({ plan, timeZone, active, onOpen }: { plan: BoardPlan; timeZon
  */
 export function PlanBoard({ cityName, timeZone, bounds, forecast, plans, activeId, onOpen }: Props) {
   const scrollerRef = useRef<HTMLOListElement>(null);
+  const units = useUnits();
   const dates = bounds ? datesIn(bounds) : forecast?.daily.map(d => d.date) ?? [];
   const active = plans.find(p => p.id === activeId) ?? null;
   const unscheduled = plans.filter(p => !p.date || !dates.includes(p.date));
@@ -133,7 +135,7 @@ export function PlanBoard({ cityName, timeZone, bounds, forecast, plans, activeI
               <p className="board-day-weather">
                 {day ? (
                   <>
-                    {describeWeatherCode(day.weatherCode)} · {formatTemperature(day.maxC)} / {formatTemperature(day.minC)}
+                    {describeWeatherCode(day.weatherCode)} · {formatTemperature(day.maxC, units)} / {formatTemperature(day.minC, units)}
                     {' · '}{t.board.rain(formatPercent(day.precipitationProbability))}
                   </>
                 ) : '—'}

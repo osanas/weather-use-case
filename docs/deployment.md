@@ -42,6 +42,8 @@ Target Montréal (`yul1`) for Vercel Functions if available on the selected conf
 
 ## Interface assets and backdrop
 
+The city catalogue (WEA-23) is a static asset, `public/data/cities-na.v1.json` (about 560 KB, 215 KB compressed), generated from the GeoNames `cities5000` dump (CC BY 4.0, credited in the footer) by `node scripts/build-cities.ts <cities5000.txt>` and committed; builds and CI make no network call for it. Browsers download it from the app's own origin on the first focus of a city search; the server imports the same file to resolve city IDs. It adds no outbound destination, identifier or log field. The display-units choice is stored in the browser's `localStorage` under `weather-window.units` and never sent.
+
 The fonts (Inter and Pixelify Sans) are downloaded from Google Fonts at build time by `next/font` and served from the app's own origin, so visitors' browsers make no request to Google; the build environment needs access to Google Fonts. The pixel-art backdrop (UI-01) requests `GET /api/weather?cityId=montreal-qc` from the same origin and shares the five-minute forecast cache. It refreshes shortly before the forecast expires while the tab is visible, at most once a minute. It adds no outbound destination, visitor data, identifier or log field. The Open-Meteo request adds the public `is_day` current-conditions field.
 
 ## Privacy review before public release

@@ -1,3 +1,5 @@
+import { TEMPERATURE_UNIT, toDisplay, WIND_UNIT, type Units } from './units';
+
 export const UNAVAILABLE = 'Unavailable';
 
 /** Formats a UTC instant in the given IANA time zone, never the visitor's zone. */
@@ -55,16 +57,18 @@ export function formatPercent(value: number | null): string {
   return `${Math.round(value)}%`;
 }
 
-export function formatTemperature(celsius: number | null): string {
+/** A temperature given in °C, shown in the visitor's units ("21 °C" or "70 °F"). */
+export function formatTemperature(celsius: number | null, units: Units = 'metric'): string {
   if (celsius === null || !Number.isFinite(celsius)) return UNAVAILABLE;
-  const rounded = Math.round(celsius);
+  const rounded = Math.round(toDisplay(celsius, 'temperature', units));
   // Avoid "-0 °C" for values that round to zero.
-  return `${new Intl.NumberFormat('en-CA').format(rounded === 0 ? 0 : rounded)} °C`;
+  return `${new Intl.NumberFormat('en-CA').format(rounded === 0 ? 0 : rounded)} ${TEMPERATURE_UNIT[units]}`;
 }
 
-export function formatWind(kmh: number | null): string {
+/** A wind speed given in km/h, shown in the visitor's units ("28 km/h" or "17 mph"). */
+export function formatWind(kmh: number | null, units: Units = 'metric'): string {
   if (kmh === null || !Number.isFinite(kmh)) return UNAVAILABLE;
-  return `${Math.round(kmh)} km/h`;
+  return `${Math.round(toDisplay(kmh, 'wind', units))} ${WIND_UNIT[units]}`;
 }
 
 const WMO_LABELS: Record<number, string> = {

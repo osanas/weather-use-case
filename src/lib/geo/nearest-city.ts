@@ -24,7 +24,10 @@ export function nearestCatalogueCity(
 ): City | undefined {
   let best: City | undefined;
   let bestKm = Infinity;
+  // Cheap bounding box first (1° of latitude is about 111 km), then the exact distance.
+  const latSpan = maxKm / 111 + 0.5;
   for (const city of cities) {
+    if (Math.abs(city.latitude - latitude) > latSpan) continue;
     const km = haversineKm(latitude, longitude, city.latitude, city.longitude);
     if (km < bestKm) {
       best = city;

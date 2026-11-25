@@ -2,6 +2,7 @@
 
 import { describeWeatherCode, formatHour, formatTemperature } from '@/lib/format';
 import { useWorld } from './World';
+import { useUnits } from '../Units';
 
 /**
  * States what the backdrop shows. Only a fresh forecast is described as live; an
@@ -10,13 +11,14 @@ import { useWorld } from './World';
  */
 export function LiveWeatherLabel() {
   const { live, scene } = useWorld();
+  const units = useUnits();
 
   let text: string;
   if (live.status === 'loading') {
     text = 'Loading live Montréal weather…';
   } else if (live.status === 'ready' && scene) {
     const { current, fetchedAt, timezone } = live.data;
-    text = `Live in Montréal: ${describeWeatherCode(current.weatherCode)}, ${formatTemperature(current.temperatureC)}`
+    text = `Live in Montréal: ${describeWeatherCode(current.weatherCode)}, ${formatTemperature(current.temperatureC, units)}`
       + ` · Updated ${formatHour(fetchedAt, timezone)}`;
   } else {
     text = 'Live Montréal weather is unavailable right now.';
