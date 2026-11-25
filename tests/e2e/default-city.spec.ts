@@ -17,27 +17,18 @@ async function setup(page: Page, headers: Record<string, string>) {
   });
 }
 
-test('starts on the nearest city and says why', async ({ page }) => {
+test('starts on the nearest city without a notice', async ({ page }) => {
   await setup(page, { 'x-vercel-ip-latitude': '45.5017', 'x-vercel-ip-longitude': '-73.5673' });
   await page.goto('/');
 
-  const notice = page.getByRole('status').filter({ hasText: 'approximate location' });
-  await expect(notice).toContainText('Montréal');
   await expect(page.getByRole('heading', { name: /Montréal/ }).first()).toBeVisible();
+  await expect(page.getByText('approximate location')).toHaveCount(0);
 });
 
-test('falls back to Laval without position headers and shows no notice', async ({ page }) => {
+test('falls back to Laval without position headers', async ({ page }) => {
   await setup(page, {});
   await page.goto('/');
 
-  await expect(page.getByRole('status').filter({ hasText: 'approximate location' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: /Laval/ }).first()).toBeVisible();
-});
-
-test('the notice can be dismissed', async ({ page }) => {
-  await setup(page, { 'x-vercel-ip-latitude': '45.5017', 'x-vercel-ip-longitude': '-73.5673' });
-  await page.goto('/');
-
-  await page.getByRole('button', { name: 'Dismiss' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'approximate location' })).toHaveCount(0);
+  await expect(page.getByText('approximate location')).toHaveCount(0);
 });
