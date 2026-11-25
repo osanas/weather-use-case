@@ -57,6 +57,7 @@ Confirm the intended use is allowed by the selected hosting, weather and AI term
 | Data flow | Expected data | Evidence to record privately |
 |---|---|---|
 | Browser to hosting perimeter | Connection metadata, city ID and validated planning inputs | Edge and firewall logging settings, recipients, access, retention and processing locations. Confirm which app fields appear in platform logs. |
+| Host geo headers to application | Approximate latitude and longitude from the host, read on the server to pick the default catalogue city; never stored, logged or forwarded | Confirm the headers are not written to platform or application logs, and record the privacy impact for review (IP-derived default city, `src/lib/geo`). |
 | Application to weather provider | Public city-centre coordinates and the catalogue IANA time zone | Actual outbound request fields and applicable provider terms. |
 | Application to AI provider | Approved planning parameters and minimal public forecast data | Payload test, account data controls, provider processing locations and applicable terms. |
 | Application diagnostics | Allowlisted operational fields | Example redacted log entries, access list and effective platform retention. |
