@@ -132,7 +132,8 @@ export function clearAnswer(answers: Answers, key: TurnKey): Answers {
   }
 }
 
-function matchesAnswers(request: PlanRequest, answers: Answers): boolean {
+/** Whether a sent request was made with exactly these answers. */
+export function matchesAnswers(request: PlanRequest, answers: Answers): boolean {
   return request.activity === answers.activity
     && request.date === answers.date
     && String(request.durationHours) === answers.duration.trim();

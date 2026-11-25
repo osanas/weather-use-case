@@ -55,7 +55,8 @@
 .bubble p { margin: 0; }
 .msg-pico .bubble { border-bottom-left-radius: 0; }
 .msg-user .bubble { background: color-mix(in srgb, var(--accent) 16%, var(--card)); }
-.msg-current .bubble { flex: 1; max-width: none; }
+/* min-width: 0 lets the result bubble shrink to a phone screen instead of its content width. */
+.msg-current .bubble { flex: 1; min-width: 0; max-width: none; }
 .msg-current .bubble:focus { outline: 2px dashed var(--accent); outline-offset: 4px; }
 .guide-bubble { font-size: 1rem; }
 
@@ -204,6 +205,8 @@
 .plan-details { margin-top: 0.5rem; }
 .plan-details summary { cursor: pointer; font-weight: 600; color: var(--accent); min-height: 2.75rem; display: flex; align-items: center; }
 .plan-details summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+/* Long terms such as "Highest precipitation probability" wrap inside a phone-width bubble. */
+.msg-current .plan-result dl { grid-template-columns: fit-content(60%) minmax(0, 1fr); }
 .msg-current .plan-result .explanation,
 .msg-current .plan-result .note { font-size: 0.875rem; }
 
