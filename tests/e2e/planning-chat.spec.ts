@@ -214,7 +214,7 @@ test('chooses another city from the local search and plans there', async ({ page
   await reply(page, 'Other city');
   const search = page.getByRole('combobox', { name: 'Other city' });
   await search.fill('Gatin');
-  await page.getByRole('option', { name: /Gatineau/ }).click();
+  await page.getByRole('option', { name: 'Gatineau, Québec', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'City', exact: true })).toHaveValue('Gatineau, Québec');
   await expect(log(page).locator('.msg-user .bubble').last()).toHaveText('You: Gatineau, Québec');
   await reply(page, '1 hour');

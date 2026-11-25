@@ -251,3 +251,12 @@
   .cloud { transform: translateX(var(--cloud-x)); }
   .layer-far, .layer-mid { transform: none; }
 }
+
+/* °C/km/h or °F/mph (WEA-23): a two-button pixel switch in the header. */
+.units-toggle { display: inline-flex; border: 2px solid var(--fg); border-radius: 0.375rem; overflow: hidden; background: var(--glass); }
+.world-content .units-toggle button {
+  min-height: 2.75rem; padding: 0.25rem 0.75rem; border: 0; border-radius: 0; box-shadow: none;
+  background: transparent; color: var(--fg); font-size: 0.875rem;
+}
+.world-content .units-toggle button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.world-content .units-toggle button:active { transform: none; }

@@ -1,4 +1,5 @@
-import { getCityById, type City } from '@/lib/cities';
+import { findCity } from '@/lib/catalogue';
+import { type City } from '@/lib/cities';
 import { createForecastCache, type ForecastCache } from './cache';
 import { fetchForecast, ProviderError, type ProviderOutcome } from './open-meteo';
 import type { ProviderForecast, WeatherErrorBody, WeatherResponse } from './types';
@@ -35,7 +36,7 @@ export function createWeatherHandler(deps: WeatherHandlerDeps) {
   return async function GET(request: Request): Promise<Response> {
     const startedAt = deps.now();
     const cityId = new URL(request.url).searchParams.get('cityId');
-    const city = getCityById(cityId);
+    const city = findCity(cityId);
     if (!city) {
       deps.log({
         route: 'weather', status: '4xx', provider: 'open-meteo',

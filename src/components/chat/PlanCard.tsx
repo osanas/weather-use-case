@@ -4,6 +4,7 @@ import { relativeDay } from '@/lib/planner/conversation';
 import type { DateBounds } from '@/lib/planner/form';
 import type { PlanResponse } from '@/lib/planner/types';
 import type { DailySummary } from '@/lib/weather/types';
+import { useUnits } from '../Units';
 
 type Match = Extract<PlanResponse, { outcome: 'match' }>;
 
@@ -28,6 +29,7 @@ export function PlanCard({ data, name, timeZone, bounds, day }: {
   bounds: DateBounds | null;
   day: DailySummary | undefined;
 }) {
+  const units = useUnits();
   const from = localHour(data.start, timeZone);
   const to = localHour(data.end, timeZone, true);
   const { criteria } = data;
@@ -39,7 +41,7 @@ export function PlanCard({ data, name, timeZone, bounds, day }: {
         <span className="plan-card-activity">{name}</span>
         {day ? (
           <span className="plan-card-weather">
-            {describeWeatherCode(day.weatherCode)} · {formatTemperature(day.maxC)}
+            {describeWeatherCode(day.weatherCode)} · {formatTemperature(day.maxC, units)}
           </span>
         ) : null}
       </div>

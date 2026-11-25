@@ -189,7 +189,7 @@ test('never shows a result for a previously selected city', async ({ page }) => 
   await expect(result(page)).toContainText('Best time');
 
   await page.getByRole('combobox', { name: 'City' }).fill('Vanc');
-  await page.getByRole('option', { name: /Vancouver/ }).click();
+  await page.getByRole('option', { name: 'Vancouver, British Columbia', exact: true }).click();
   await expect(result(page)).toBeEmpty();
   await expect(page.getByRole('heading', { name: 'Plan an activity' })).toBeVisible();
   // Nothing is sent for the new city until the visitor asks.

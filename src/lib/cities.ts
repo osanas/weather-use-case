@@ -8,11 +8,16 @@ export type City = {
   longitude: number;
   /** IANA time zone used to display all times for this city. */
   timeZone: string;
+  /** Present for catalogue cities (WEA-23); the curated list below omits it. */
+  country?: 'CA' | 'US';
+  /** GeoNames population, used only to rank search results. */
+  population?: number;
 };
 
 /**
- * Public city catalogue, bundled for local search in the browser.
- * Coordinates are approximate public city centres.
+ * Featured cities, bundled with the page: the default city, the chat's quick choices and the
+ * search suggestions before the full catalogue loads. The full Canada and United States
+ * catalogue (WEA-23) keeps these IDs; see `catalogue.ts` and `public/data/cities-na.v1.json`.
  */
 export const CITIES: readonly City[] = [
   { id: 'laval-qc', label: 'Laval', province: 'QC', latitude: 45.5833, longitude: -73.75, timeZone: 'America/Toronto' },
@@ -36,9 +41,32 @@ export const PROVINCE_NAMES: Readonly<Record<string, string>> = {
   NL: 'Newfoundland and Labrador',
   NS: 'Nova Scotia',
   ON: 'Ontario',
+  NB: 'New Brunswick',
+  NT: 'Northwest Territories',
+  NU: 'Nunavut',
+  PE: 'Prince Edward Island',
   QC: 'Québec',
   SK: 'Saskatchewan',
+  YT: 'Yukon',
+  // United States (WEA-23)
+  AK: 'Alaska', AL: 'Alabama', AR: 'Arkansas', AZ: 'Arizona', CA: 'California', CO: 'Colorado',
+  CT: 'Connecticut', DC: 'District of Columbia', DE: 'Delaware', FL: 'Florida', GA: 'Georgia',
+  HI: 'Hawaii', IA: 'Iowa', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', KS: 'Kansas', KY: 'Kentucky',
+  LA: 'Louisiana', MA: 'Massachusetts', MD: 'Maryland', ME: 'Maine', MI: 'Michigan', MN: 'Minnesota',
+  MO: 'Missouri', MS: 'Mississippi', MT: 'Montana', NC: 'North Carolina', ND: 'North Dakota',
+  NE: 'Nebraska', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NV: 'Nevada', NY: 'New York',
+  OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
+  SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VA: 'Virginia', VT: 'Vermont',
+  WA: 'Washington', WI: 'Wisconsin', WV: 'West Virginia', WY: 'Wyoming',
 };
+
+const CURATED_ID = /^[a-z][a-z-]{1,30}-[a-z]{2}$/;
+const GEONAMES_ID = /^gn-\d{1,10}$/;
+
+/** Shape check for a catalogue city ID (curated slug or `gn-<geonameid>`); not a lookup. */
+export function isCityIdFormat(id: unknown): id is string {
+  return typeof id === 'string' && (CURATED_ID.test(id) || GEONAMES_ID.test(id));
+}
 
 export function getCityById(id: unknown): City | undefined {
   if (typeof id !== 'string') return undefined;

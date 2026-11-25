@@ -1,36 +1,56 @@
 'use client';
 
 import { useId, useMemo, useState, type KeyboardEvent } from 'react';
+import { loadCatalogue } from '@/lib/catalogue-client';
 import { cityDisplayName, type City } from '@/lib/cities';
 import { searchCities } from '@/lib/city-search';
 
+/** Suggestions shown at once; the full catalogue has about 8,900 cities. */
+const MAX_RESULTS = 8;
+
 type Props = {
+  /** Featured cities: shown for an empty query and searched until the full catalogue loads. */
   cities: readonly City[];
-  selectedId: string;
-  onSelect: (cityId: string) => void;
+  /** The selected city, or `null` for none (the chat's "Other city" search). */
+  selected: City | null;
+  onSelect: (city: City) => void;
   /** Visible label; the page's main selector is "City". */
   label?: string;
 };
 
 /**
- * ARIA 1.2 combobox with a listbox popup. Search runs locally; keystrokes never
- * leave the browser. Only a confirmed selection calls `onSelect`.
+ * ARIA 1.2 combobox with a listbox popup. The Canada and United States catalogue is fetched
+ * once on first focus and searched locally; keystrokes never leave the browser. Only a
+ * confirmed selection calls `onSelect`.
  */
-export function CitySelector({ cities, selectedId, onSelect, label = 'City' }: Props) {
+export function CitySelector({ cities, selected, onSelect, label = 'City' }: Props) {
   const baseId = useId();
   const inputId = `${baseId}-input`;
   const listId = `${baseId}-list`;
   const optionId = (i: number) => `${baseId}-option-${i}`;
 
-  const selected = cities.find(c => c.id === selectedId);
   const selectedLabel = selected ? cityDisplayName(selected) : '';
+  const [catalogue, setCatalogue] = useState<City[] | null>(null);
+  const [loading, setLoading] = useState<'idle' | 'loading' | 'failed'>('idle');
+
+  function load() {
+    if (catalogue || loading === 'loading') return;
+    setLoading('loading');
+    loadCatalogue().then(
+      all => { setCatalogue(all); setLoading('idle'); },
+      () => setLoading('failed'),
+    );
+  }
 
   const [query, setQuery] = useState(selectedLabel);
   const [editing, setEditing] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
 
-  const results = useMemo(() => searchCities(editing ? query : '', cities), [editing, query, cities]);
+  const results = useMemo(() => {
+    const q = editing ? query : '';
+    return searchCities(q, q.trim() && catalogue ? catalogue : cities, MAX_RESULTS);
+  }, [editing, query, cities, catalogue]);
   const expanded = open && results.length > 0;
 
   function close() {
@@ -45,7 +65,7 @@ export function CitySelector({ cities, selectedId, onSelect, label = 'City' }: P
     setActive(-1);
     setEditing(false);
     setQuery(cityDisplayName(city));
-    if (city.id !== selectedId) onSelect(city.id);
+    if (city.id !== selected?.id) onSelect(city);
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -97,7 +117,7 @@ export function CitySelector({ cities, selectedId, onSelect, label = 'City' }: P
           setOpen(true);
           setActive(-1);
         }}
-        onFocus={event => event.target.select()}
+        onFocus={event => { event.target.select(); load(); }}
         onClick={() => setOpen(true)}
         onKeyDown={onKeyDown}
         onBlur={close}
@@ -119,7 +139,10 @@ export function CitySelector({ cities, selectedId, onSelect, label = 'City' }: P
         ))}
       </ul>
       <p role="status" className="search-status">
-        {open && editing && results.length === 0 ? 'No matching cities' : ''}
+        {!open || !editing ? ''
+          : loading === 'loading' && !catalogue ? 'Loading cities…'
+            : loading === 'failed' ? 'Only the main cities are available right now. Focus the field again to retry.'
+              : results.length === 0 ? 'No matching cities' : ''}
       </p>
     </div>
   );

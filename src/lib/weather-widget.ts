@@ -1,3 +1,4 @@
+import { toDisplay, type Units } from './units';
 import { dataDomain, finite, type Domain } from './forecast-chart';
 import type { HourlyPoint } from './weather/types';
 
@@ -133,9 +134,10 @@ export function weekdayOf(date: string, style: 'short' | 'long'): string {
 }
 
 /** Short value printed above the curve: "-8°", "40%" or "24" (km/h). Empty when missing. */
-export function compactValue(value: number | null, metric: Metric): string {
+export function compactValue(value: number | null, metric: Metric, units: Units = 'metric'): string {
   if (!finite(value)) return '';
-  const rounded = Math.round(value) || 0;
+  const shown = metric === 'precipitation' ? value : toDisplay(value, metric, units);
+  const rounded = Math.round(shown) || 0;
   if (metric === 'temperature') return `${rounded}°`;
   if (metric === 'precipitation') return `${Math.min(100, Math.max(0, rounded))}%`;
   return String(rounded);

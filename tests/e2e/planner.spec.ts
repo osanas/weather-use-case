@@ -30,7 +30,7 @@ for (const mode of ['agent', 'rule-based'] as const) {
     await page.goto('/');
     await waitForPlanner(page);
     await page.getByRole('combobox', { name: 'City' }).fill('Laval');
-    await page.getByRole('option', { name: /Laval/ }).click();
+    await page.getByRole('option', { name: 'Laval, Québec', exact: true }).click();
     const request = page.waitForRequest(req =>
       new URL(req.url()).pathname === '/api/plan' && req.method() === 'POST');
     await planWithPico(page, { activity: 'Hiking', city: 'Laval', when: 'Today', duration: '2 hours' });

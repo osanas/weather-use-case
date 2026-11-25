@@ -1,5 +1,6 @@
 import { describeWeatherCode, formatDay, formatPercent, formatTemperature } from '@/lib/format';
 import { messages as t } from '@/lib/i18n/messages';
+import type { Units } from '@/lib/units';
 import type { DailySummary } from '@/lib/weather/types';
 import { datesIn, inBounds, nextWeekDates, weekendDates } from './calendar';
 import type { PlanRequest } from './criteria';
@@ -77,6 +78,8 @@ export type ChatView = {
 
 export type ChatState = {
   answers: Answers;
+  /** Display units for the day summaries; metric when omitted. */
+  units?: Units;
   cityName: string;
   /** Catalogue cities offered as quick choices, the selected one first. */
   cityChoices: readonly { id: string; label: string }[];
@@ -149,10 +152,10 @@ export function matchesAnswers(request: PlanRequest, answers: Answers): boolean 
     && String(request.durationHours) === answers.duration.trim();
 }
 
-function dayDetail(date: string, days: readonly DailySummary[] | null): string | undefined {
+function dayDetail(date: string, days: readonly DailySummary[] | null, units: Units = 'metric'): string | undefined {
   const day = days?.find(d => d.date === date);
   if (!day) return undefined;
-  return [describeWeatherCode(day.weatherCode), formatTemperature(day.maxC), `${formatPercent(day.precipitationProbability)} rain`]
+  return [describeWeatherCode(day.weatherCode), formatTemperature(day.maxC, units), `${formatPercent(day.precipitationProbability)} rain`]
     .join(' · ');
 }
 
@@ -261,7 +264,7 @@ export function chatView(state: ChatState): ChatView {
     return {
       turns,
       ...ask('day', dayQuestion(answers.when, bounds), dates.map(date => ({
-        id: `day-${date}`, label: relativeDay(date, bounds), detail: dayDetail(date, state.days), answer: { date },
+        id: `day-${date}`, label: relativeDay(date, bounds), detail: dayDetail(date, state.days, state.units), answer: { date },
       })), 'date'),
     };
   }

@@ -56,12 +56,13 @@ test('selects a city with the keyboard only, without requests while typing', asy
   await expect.poll(() => requested).toContain(BACKDROP_CITY_ID);
 
   const combobox = page.getByRole('combobox', { name: 'City' });
-  await page.keyboard.press('Tab');
+  // The header's units switch (two buttons) comes first in the tab order.
+  for (let i = 0; i < 3; i++) await page.keyboard.press('Tab');
   await expect(combobox).toBeFocused();
   await page.keyboard.type('mont');
   await expect(combobox).toHaveAttribute('aria-expanded', 'true');
-  // Scoped to the city selector: the planning form's Activity select also has options.
-  await expect(cityOptions(page)).toHaveText(['Montréal, Québec']);
+  // The full catalogue answers; the largest "Mont…" city comes first.
+  await expect(cityOptions(page).first()).toHaveText('Montréal, Québec');
   expect(withoutBackdrop(requested)).toEqual(['laval-qc']);
 
   await page.keyboard.press('ArrowDown');

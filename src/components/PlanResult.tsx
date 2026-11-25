@@ -6,6 +6,7 @@ import { formatDay, formatHour, formatPercent, formatWind } from '@/lib/format';
 import type { PlanRequest } from '@/lib/planner/criteria';
 import { activityLabel } from '@/lib/planner/conversation';
 import type { PlanCriteria, PlanMode, PlanResponse } from '@/lib/planner/types';
+import { useUnits } from './Units';
 
 type State =
   | { status: 'loading'; request: PlanRequest }
@@ -22,6 +23,7 @@ const hours = (n: number) => `${n} ${n === 1 ? 'hour' : 'hours'}`;
 /** Effective constraints from the server response. The thresholds are read-only policy values. */
 function Constraints({ criteria, activityName }: { criteria: PlanCriteria; activityName?: string }) {
   const profile = activityLabel(criteria.activity);
+  const units = useUnits();
   return (
     <>
       <h4>Constraints used</h4>
@@ -31,7 +33,7 @@ function Constraints({ criteria, activityName }: { criteria: PlanCriteria; activ
         <dt>Date</dt><dd>{formatDay(criteria.date)} ({criteria.date})</dd>
         <dt>Duration</dt><dd>{hours(criteria.durationHours)}</dd>
         <dt>Maximum precipitation</dt><dd>{formatPercent(criteria.maxPrecipitationProbability)}</dd>
-        <dt>Maximum wind</dt><dd>{formatWind(criteria.maxWindKmh)}</dd>
+        <dt>Maximum wind</dt><dd>{formatWind(criteria.maxWindKmh, units)}</dd>
       </dl>
     </>
   );
@@ -58,6 +60,7 @@ export function PlanResult({ state, city, cityName, onRetry, compact = false, ac
 function Content({ state, city, cityName, onRetry, compact, activityName }: {
   state: State; city: City; cityName: string; onRetry: () => void; compact: boolean; activityName?: string;
 }) {
+  const units = useUnits();
   const fold = (children: ReactNode) => compact
     ? <details className="plan-details"><summary>How Pico chose this</summary>{children}</details>
     : children;
@@ -100,16 +103,16 @@ function Content({ state, city, cityName, onRetry, compact, activityName }: {
         {mode}
         <dl>
           <dt>Highest precipitation probability</dt><dd>{formatPercent(data.maxPrecipitationProbability)}</dd>
-          <dt>Highest sustained wind</dt><dd>{formatWind(data.maxWindKmh)}</dd>
+          <dt>Highest sustained wind</dt><dd>{formatWind(data.maxWindKmh, units)}</dd>
         </dl>
         {fold(<>
         <p className="explanation">
           {/* Server-owned template filled from planner values; model text is never rendered. */}
           Every hour stays within the {activityLabel(criteria.activity).toLowerCase()} limits of{' '}
           {formatPercent(criteria.maxPrecipitationProbability)} precipitation chance and{' '}
-          {formatWind(criteria.maxWindKmh)} wind. Among the eligible {criteria.durationHours}-hour periods,
+          {formatWind(criteria.maxWindKmh, units)} wind. Among the eligible {criteria.durationHours}-hour periods,
           this one has the lowest precipitation chance ({formatPercent(data.maxPrecipitationProbability)}),
-          then the lightest wind ({formatWind(data.maxWindKmh)}), then the earliest start.
+          then the lightest wind ({formatWind(data.maxWindKmh, units)}), then the earliest start.
         </p>
         </>)}
         <Constraints criteria={criteria} activityName={activityName} />

@@ -123,13 +123,13 @@ test('shows each city its own plans', async ({ page }) => {
 
   const city = page.getByRole('combobox', { name: 'City', exact: true });
   await city.fill('Gatin');
-  await page.getByRole('option', { name: /Gatineau/ }).click();
+  await page.getByRole('option', { name: 'Gatineau, Québec', exact: true }).click();
   // The same answers start a draft in the new city; Laval's window stays in Laval.
   await expect(plans(page)).toHaveCount(1);
   await expect(dayItem(page, SAT).locator('.board-plan')).toHaveText(/finding a time/);
 
   await city.fill('Laval');
-  await page.getByRole('option', { name: /^Laval/ }).click();
+  await page.getByRole('option', { name: 'Laval, Québec', exact: true }).click();
   await expect(dayItem(page, SAT).locator('.board-plan')).toContainText('11:00–13:00');
 });
 

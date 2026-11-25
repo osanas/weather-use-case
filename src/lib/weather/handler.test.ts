@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getCityById, type City } from '@/lib/cities';
+import { findCity } from '@/lib/catalogue';
+import { type City } from '@/lib/cities';
 import { createForecastCache, FORECAST_TTL_MS } from './cache';
 import { createWeatherHandler, toPublicForecast, type WeatherLogEntry } from './handler';
 import { ProviderError } from './open-meteo';
@@ -133,7 +134,7 @@ describe('GET /api/weather', () => {
     const { get, fetchSpy } = setup(async () => forecast);
     await get('?cityId=laval-qc&lat=1&lon=2&timezone=Etc/UTC');
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(fetchSpy.mock.calls[0]).toEqual([getCityById('laval-qc')]);
+    expect(fetchSpy.mock.calls[0]).toEqual([findCity('laval-qc')]);
   });
 
   it('does not cache invalid provider payloads', async () => {
