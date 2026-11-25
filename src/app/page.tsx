@@ -15,7 +15,7 @@ export default async function HomePage() {
   const fallback = getCityById(DEFAULT_CITY_ID);
   if (!fallback) throw new Error('Default city missing from catalogue');
   // Uses the host's approximate position on the server only; no browser permission is requested.
-  const { city, located } = locateDefaultCity(await headers(), fallback, CATALOGUE);
+  const { city } = locateDefaultCity(await headers(), fallback, CATALOGUE);
 
   return (
     <World scenery={<Scenery />}>
@@ -26,11 +26,7 @@ export default async function HomePage() {
           <LiveWeatherLabel />
           <UnitsToggle />
         </header>
-        <WeatherApp
-          cities={CITIES}
-          defaultCity={city}
-          locatedCityId={located ? city.id : null}
-        />
+        <WeatherApp cities={CITIES} defaultCity={city} />
         <footer>
           <p>
             Weather data by{' '}

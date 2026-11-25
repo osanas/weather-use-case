@@ -31,7 +31,7 @@
 
 /* Messages */
 .chat-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
-.msg { display: flex; align-items: flex-end; gap: 0.5rem; min-width: 0; animation: msg-in 240ms steps(3, end) both; }
+.msg { display: flex; align-items: flex-end; gap: 0.5rem; min-width: 0; animation: msg-in 240ms steps(3, end) backwards; }
 .msg-user { justify-content: flex-end; }
 .msg-pico { align-items: flex-start; }
 /*
@@ -106,7 +106,7 @@
 .speech-stack .speech:nth-child(2) { animation-delay: 1140ms; }
 /* Then the first question and its answers. Both elements stay mounted, so this runs once. */
 .chat-log > .msg-current { animation-delay: 1700ms; }
-.composer { animation: msg-in 240ms steps(3, end) 1900ms both; }
+.composer { animation: msg-in 240ms steps(3, end) 1900ms backwards; }
 
 .world-content .msg-edit,
 .world-content .link-button {
@@ -197,7 +197,7 @@
   box-shadow:
     0 -2px 0 var(--fg), 0 2px 0 var(--fg), -2px 0 0 var(--fg), 2px 0 0 var(--fg),
     6px 8px 0 var(--pixel-shadow);
-  animation: msg-in 180ms steps(3, end) both;
+  animation: msg-in 180ms steps(3, end) backwards;
 }
 .picker-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; }
 .picker-head h3 { margin: 0; font-family: var(--font-pixel), var(--font-body), sans-serif; font-size: 1.0625rem; }
@@ -234,7 +234,7 @@
   border-radius: 0.5rem;
   background: color-mix(in srgb, #3ccf6e 8%, var(--card));
   box-shadow: 4px 4px 0 var(--pixel-shadow);
-  animation: msg-in 300ms steps(3, end) both;
+  animation: msg-in 300ms steps(3, end) backwards;
 }
 .plan-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.625rem; }
 .plan-card-dot { width: 10px; height: 10px; background: #2fae5a; }
