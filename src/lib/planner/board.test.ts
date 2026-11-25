@@ -8,8 +8,9 @@ import type { PlanRequest } from './criteria';
 import type { PlanCriteria, PlanResponse } from './types';
 
 // Synthetic state only.
+const TZ = 'America/Toronto';
 const request: PlanRequest = { cityId: 'laval-qc', activity: 'hiking', date: '2027-06-19', durationHours: 2 };
-const criteria: PlanCriteria = { ...request, maxPrecipitationProbability: 35, maxWindKmh: 28 };
+const criteria: PlanCriteria = { ...request, days: 1, maxPrecipitationProbability: 35, maxWindKmh: 28 };
 const full: Answers = { activity: 'hiking', label: '', city: true, when: 'weekend', date: '2027-06-19', duration: '2' };
 const done = (data: PlanResponse): ChatRequest => ({ status: 'done', request, data });
 
@@ -57,26 +58,26 @@ describe('inWindow', () => {
 
 describe('planFromChat', () => {
   it('has no plan before an activity is chosen', () => {
-    expect(planFromChat('p1', 'laval-qc', NO_ANSWERS, null)).toBeNull();
-    expect(planFromChat('p1', 'laval-qc', { ...NO_ANSWERS, activity: 'swimming' }, null)).toBeNull();
+    expect(planFromChat('p1', 'laval-qc', NO_ANSWERS, null, TZ)).toBeNull();
+    expect(planFromChat('p1', 'laval-qc', { ...NO_ANSWERS, activity: 'swimming' }, null, TZ)).toBeNull();
   });
 
   it('starts as a draft without a day, then gains the day and the duration', () => {
-    expect(planFromChat('p1', 'laval-qc', { ...NO_ANSWERS, activity: 'hiking' }, null)).toEqual({
+    expect(planFromChat('p1', 'laval-qc', { ...NO_ANSWERS, activity: 'hiking' }, null, TZ)).toEqual({
       id: 'p1', cityId: 'laval-qc', activity: 'hiking', date: null, durationHours: null, status: 'draft',
       answers: { ...NO_ANSWERS, activity: 'hiking' },
     });
-    const dated = planFromChat('p1', 'laval-qc', { ...full, duration: '' }, null);
+    const dated = planFromChat('p1', 'laval-qc', { ...full, duration: '' }, null, TZ);
     expect(dated).toMatchObject({ date: '2027-06-19', durationHours: null, status: 'draft' });
-    expect(planFromChat('p1', 'laval-qc', { ...full, duration: '7.5' }, null)?.durationHours).toBeNull();
+    expect(planFromChat('p1', 'laval-qc', { ...full, duration: '7.5' }, null, TZ)?.durationHours).toBeNull();
   });
 
   it('follows the request sent with these answers', () => {
-    expect(planFromChat('p1', 'laval-qc', full, { status: 'loading', request })?.status).toBe('checking');
-    expect(planFromChat('p1', 'laval-qc', full, { status: 'error', request, message: 'Try again.' })?.status).toBe('error');
-    expect(planFromChat('p1', 'laval-qc', full, done({ outcome: 'insufficient', reason: 'stale', mode: 'rule-based', criteria }))?.status)
+    expect(planFromChat('p1', 'laval-qc', full, { status: 'loading', request }, TZ)?.status).toBe('checking');
+    expect(planFromChat('p1', 'laval-qc', full, { status: 'error', request, message: 'Try again.' }, TZ)?.status).toBe('error');
+    expect(planFromChat('p1', 'laval-qc', full, done({ outcome: 'insufficient', reason: 'stale', mode: 'rule-based', criteria }), TZ)?.status)
       .toBe('insufficient');
-    expect(planFromChat('p1', 'laval-qc', full, done({ outcome: 'planning_unavailable', reason: 'thresholds_not_defined' }))?.status)
+    expect(planFromChat('p1', 'laval-qc', full, done({ outcome: 'planning_unavailable', reason: 'thresholds_not_defined' }), TZ)?.status)
       .toBe('unavailable');
   });
 
@@ -84,7 +85,7 @@ describe('planFromChat', () => {
     const plan = planFromChat('p1', 'laval-qc', full, done({
       outcome: 'match', mode: 'rule-based', start: '2027-06-19T15:00:00Z', end: '2027-06-19T17:00:00Z',
       maxPrecipitationProbability: 10, maxWindKmh: 12, criteria,
-    }));
+    }), TZ);
     expect(plan).toMatchObject({
       status: 'match', date: '2027-06-19', durationHours: 2,
       start: '2027-06-19T15:00:00Z', end: '2027-06-19T17:00:00Z',
@@ -94,12 +95,45 @@ describe('planFromChat', () => {
 
   it('keeps the limits for no match, and turns back into a draft when the answers change', () => {
     const noMatch = done({ outcome: 'no_match', mode: 'rule-based', criteria });
-    expect(planFromChat('p1', 'laval-qc', full, noMatch)).toMatchObject({
+    expect(planFromChat('p1', 'laval-qc', full, noMatch, TZ)).toMatchObject({
       status: 'no_match', limits: { maxPrecipitationProbability: 35, maxWindKmh: 28 },
     });
-    const otherDay = planFromChat('p1', 'laval-qc', { ...full, date: '2027-06-20' }, noMatch);
+    const otherDay = planFromChat('p1', 'laval-qc', { ...full, date: '2027-06-20' }, noMatch, TZ);
     expect(otherDay).toMatchObject({ status: 'draft', date: '2027-06-20' });
     expect(otherDay).not.toHaveProperty('limits');
+  });
+});
+
+describe('flexible plans', () => {
+  const answers: Answers = { ...full, when: 'flexible', date: '2027-06-14' };
+  const flexRequest: PlanRequest = { ...request, date: '2027-06-14', days: 3 };
+  const flexCriteria: PlanCriteria = { ...criteria, date: '2027-06-14', days: 3 };
+  const flexDone = (data: PlanResponse): ChatRequest => ({ status: 'done', request: flexRequest, data });
+
+  it('has no day until the planner finds a window, so it waits in the tray', () => {
+    expect(planFromChat('p1', 'laval-qc', answers, null, 'America/Toronto')).toMatchObject({ status: 'draft', date: null });
+    expect(planFromChat('p1', 'laval-qc', answers, { status: 'loading', request: flexRequest }, 'America/Toronto'))
+      .toMatchObject({ status: 'checking', date: null });
+    expect(planFromChat('p1', 'laval-qc', answers, flexDone({ outcome: 'no_match', mode: 'rule-based', criteria: flexCriteria }), 'America/Toronto'))
+      .toMatchObject({ status: 'no_match', date: null });
+  });
+
+  it('takes the local day of the found window after a match', () => {
+    const plan = planFromChat('p1', 'laval-qc', answers, flexDone({
+      outcome: 'match', mode: 'rule-based', start: '2027-06-16T02:00:00Z', end: '2027-06-16T04:00:00Z',
+      maxPrecipitationProbability: 5, maxWindKmh: 10, criteria: flexCriteria,
+    }), 'America/Toronto');
+    // 22:00 EDT on the 15th.
+    expect(plan).toMatchObject({ status: 'match', date: '2027-06-15', start: '2027-06-16T02:00:00Z' });
+  });
+
+  it('turns back into a draft when the visitor picks today instead', () => {
+    const checked = applyChatPlan([], 'c1', 'laval-qc', planFromChat(boardId('c1', 'laval-qc'), 'laval-qc', answers, flexDone({
+      outcome: 'match', mode: 'rule-based', start: '2027-06-14T15:00:00Z', end: '2027-06-14T17:00:00Z',
+      maxPrecipitationProbability: 5, maxWindKmh: 10, criteria: flexCriteria,
+    }), 'America/Toronto'));
+    const today = planFromChat(boardId('c1', 'laval-qc'), 'laval-qc', { ...answers, when: 'today' }, null, 'America/Toronto');
+    expect(applyChatPlan(checked, 'c1', 'laval-qc', today)[0]).toMatchObject({ status: 'draft', date: '2027-06-14' });
   });
 });
 
@@ -109,7 +143,7 @@ describe('applyChatPlan', () => {
     maxPrecipitationProbability: 10, maxWindKmh: 12, criteria,
   });
   const chat = (cityId: string, answers: Answers, req: ChatRequest | null = null) =>
-    planFromChat(boardId('c1', cityId), cityId, answers, req);
+    planFromChat(boardId('c1', cityId), cityId, answers, req, TZ);
 
   it('stores the plan under its conversation and city and removes it without an activity', () => {
     const one = applyChatPlan([], 'c1', 'laval-qc', chat('laval-qc', { ...NO_ANSWERS, activity: 'hiking' }));
@@ -137,7 +171,7 @@ describe('applyChatPlan', () => {
       status: 'draft', durationHours: 3,
     });
     // Other conversations are never touched.
-    const other = applyChatPlan(checked, 'c2', 'laval-qc', planFromChat('x', 'laval-qc', { ...NO_ANSWERS, activity: 'walking' }, null));
+    const other = applyChatPlan(checked, 'c2', 'laval-qc', planFromChat('x', 'laval-qc', { ...NO_ANSWERS, activity: 'walking' }, null, TZ));
     expect(other.map(p => p.id)).toEqual(['c1@laval-qc', 'c2@laval-qc']);
   });
 

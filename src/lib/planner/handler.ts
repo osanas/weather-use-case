@@ -142,7 +142,7 @@ export function createPlanHandler(deps: PlanHandlerDeps) {
       const unavailable: PlanResponse = { outcome: 'planning_unavailable', reason: 'thresholds_not_defined' };
       return Response.json(unavailable, { headers: NO_STORE });
     }
-    const criteria = { ...parsed.request, ...thresholds };
+    const criteria = { ...parsed.request, days: parsed.request.days ?? 1, ...thresholds };
 
     let forecast = deps.cache.get(city.id);
     if (!forecast) {

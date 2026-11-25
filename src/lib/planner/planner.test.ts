@@ -57,6 +57,7 @@ const criteria = (overrides: Partial<PlanCriteria> = {}): PlanCriteria => ({
   cityId: 'laval-qc',
   activity: 'hiking',
   date: '2027-06-14',
+  days: 1,
   durationHours: 2,
   maxPrecipitationProbability: 30,
   maxWindKmh: 25,
@@ -284,6 +285,92 @@ describe('planActivityWindow', () => {
       expect(ranked.map(x => x.start)).toEqual([
         '2027-06-14T18:00:00.000Z', '2027-06-14T20:00:00.000Z', '2027-06-14T15:00:00.000Z', '2027-06-14T13:00:00.000Z',
       ]);
+    });
+  });
+
+  describe('flexible search over several days (days: 3)', () => {
+    const flexible = criteria({ days: 3 });
+
+    it('ranks the windows of all searched days together and echoes days', () => {
+      const result = planActivityWindow(forecast({
+        '2027-06-14T15:00:00Z': [20, 10], '2027-06-14T16:00:00Z': [20, 10], // today, 20 %
+        '2027-06-16T13:00:00Z': [5, 10], '2027-06-16T14:00:00Z': [5, 10], // day after tomorrow, 5 %
+      }), flexible, NOW);
+      expect(result).toEqual({
+        outcome: 'match', criteria: flexible,
+        start: '2027-06-16T13:00:00.000Z', end: '2027-06-16T15:00:00.000Z',
+        maxPrecipitationProbability: 5, maxWindKmh: 10,
+      });
+    });
+
+    it('takes the earliest day when windows on several days tie', () => {
+      const result = planActivityWindow(forecast({
+        '2027-06-15T13:00:00Z': [5, 10], '2027-06-15T14:00:00Z': [5, 10],
+        '2027-06-16T13:00:00Z': [5, 10], '2027-06-16T14:00:00Z': [5, 10],
+      }), flexible, NOW);
+      expect(result).toMatchObject({ outcome: 'match', start: '2027-06-15T13:00:00.000Z' });
+    });
+
+    it('never searches past the third day', () => {
+      const result = planActivityWindow(forecast({
+        '2027-06-17T13:00:00Z': [0, 0], '2027-06-17T14:00:00Z': [0, 0],
+      }), flexible, NOW);
+      expect(result).toEqual({ outcome: 'no_match', criteria: flexible });
+    });
+
+    it('excludes hours of today that have already passed', () => {
+      const result = planActivityWindow(forecast({
+        '2027-06-14T10:00:00Z': [0, 0], '2027-06-14T11:00:00Z': [0, 0], // before NOW
+        '2027-06-15T13:00:00Z': [25, 20], '2027-06-15T14:00:00Z': [25, 20],
+      }), flexible, NOW);
+      expect(result).toMatchObject({ outcome: 'match', start: '2027-06-15T13:00:00.000Z' });
+    });
+
+    it('does not join the last hour of one day with the first hour of the next', () => {
+      const result = planActivityWindow(forecast({
+        '2027-06-15T03:00:00Z': [0, 0], // 23:00 EDT on the 14th
+        '2027-06-15T04:00:00Z': [0, 0], // 00:00 EDT on the 15th
+      }), flexible, NOW);
+      expect(result.outcome).toBe('no_match');
+    });
+
+    it('still returns a match when a searched day is missing', () => {
+      const days = summerDays(2);
+      const result = planActivityWindow(forecast({
+        '2027-06-15T13:00:00Z': [0, 0], '2027-06-15T14:00:00Z': [0, 0],
+      }, { days }), flexible, NOW);
+      expect(result).toMatchObject({ outcome: 'match', start: '2027-06-15T13:00:00.000Z' });
+    });
+
+    it('reports insufficient data when a searched day is missing and no window matches', () => {
+      const result = planActivityWindow(forecast({}, { days: summerDays(2) }), flexible, NOW);
+      expect(result).toMatchObject({ outcome: 'insufficient', reason: 'missing_data' });
+    });
+
+    it('rejects a search whose last day lies past the horizon', () => {
+      // 18–20 June ends on today + 6 days; 19–21 June ends past it.
+      expect(planActivityWindow(forecast(), criteria({ date: '2027-06-18', days: 3 }), NOW).outcome).toBe('no_match');
+      expect(planActivityWindow(forecast(), criteria({ date: '2027-06-19', days: 3 }), NOW).outcome).toBe('outside_horizon');
+    });
+
+    it('searches a spring-forward day inside the span with its 23 hours', () => {
+      const days: LocalDay[] = [
+        { date: '2027-03-13', startsAt: '2027-03-13T05:00:00.000Z', endsAt: '2027-03-14T05:00:00.000Z' },
+        { date: '2027-03-14', startsAt: '2027-03-14T05:00:00.000Z', endsAt: '2027-03-15T04:00:00.000Z' },
+        { date: '2027-03-15', startsAt: '2027-03-15T04:00:00.000Z', endsAt: '2027-03-16T04:00:00.000Z' },
+      ];
+      const now = Date.parse('2027-03-13T12:00:00Z');
+      const data = forecast({
+        '2027-03-14T06:00:00Z': [0, 0], // 01:00 EST
+        '2027-03-14T07:00:00Z': [0, 0], // 03:00 EDT
+      }, { days, fetchedAt: new Date(now).toISOString() });
+      const result = planActivityWindow(data, criteria({ date: '2027-03-13', days: 3 }), now);
+      expect(result).toMatchObject({ outcome: 'match', start: '2027-03-14T06:00:00.000Z', end: '2027-03-14T08:00:00.000Z' });
+    });
+
+    it('behaves exactly like a one-day request with days: 1', () => {
+      const data = forecast({ '2027-06-15T13:00:00Z': [0, 0], '2027-06-15T14:00:00Z': [0, 0] });
+      expect(planActivityWindow(data, criteria(), NOW).outcome).toBe('no_match');
     });
   });
 

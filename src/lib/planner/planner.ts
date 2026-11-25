@@ -72,8 +72,14 @@ export function rankWindows(windows: readonly ActivityWindow[]): ActivityWindow[
     || Date.parse(a.start) - Date.parse(b.start));
 }
 
+/** The local dates a request searches: `date` and the following days, `days` in all. */
+export function searchedDates(criteria: Pick<PlanCriteria, 'date' | 'days'>): string[] {
+  return Array.from({ length: Math.max(1, criteria.days) }, (_, i) => addCalendarDays(criteria.date, i));
+}
+
 /**
- * Finds the best activity window on the requested local day. Deterministic: the result
+ * Finds the best activity window on the requested local days (one, or up to three for
+ * "I'm flexible"). All eligible windows of those days are ranked together. Deterministic: the result
  * depends only on the forecast, the validated criteria and `now`.
  *
  * Local days come from the provider's local-midnight instants for the city's IANA zone,
@@ -94,22 +100,27 @@ export function planActivityWindow(
   const today = forecast.localDays.find(day =>
     Date.parse(day.startsAt) <= now && now < Date.parse(day.endsAt));
   if (!today) return { outcome: 'insufficient', reason: 'missing_data', criteria };
-  if (criteria.date < today.date || criteria.date > addCalendarDays(today.date, FORECAST_DAYS - 1)) {
+  const dates = searchedDates(criteria);
+  if (dates[0]! < today.date || dates[dates.length - 1]! > addCalendarDays(today.date, FORECAST_DAYS - 1)) {
     return { outcome: 'outside_horizon', criteria };
   }
 
-  const day = forecast.localDays.find(d => d.date === criteria.date);
-  if (!day) return { outcome: 'insufficient', reason: 'missing_data', criteria };
-
   const points = new Map(forecast.hourly.map(point => [Date.parse(point.time), point]));
-  const futureHours = hourStartsOfDay(day).filter(hour => hour >= now);
-
   const eligible: ActivityWindow[] = [];
   let unassessable = false;
-  for (let i = 0; i + criteria.durationHours <= futureHours.length; i++) {
-    const assessment = assessWindow(futureHours.slice(i, i + criteria.durationHours), points, criteria);
-    if (assessment.status === 'pass') eligible.push(assessment.window);
-    else if (assessment.status === 'unknown') unassessable = true;
+  for (const date of dates) {
+    const day = forecast.localDays.find(d => d.date === date);
+    if (!day) {
+      unassessable = true;
+      continue;
+    }
+    // Windows stay inside one local day, as for a single-day request.
+    const futureHours = hourStartsOfDay(day).filter(hour => hour >= now);
+    for (let i = 0; i + criteria.durationHours <= futureHours.length; i++) {
+      const assessment = assessWindow(futureHours.slice(i, i + criteria.durationHours), points, criteria);
+      if (assessment.status === 'pass') eligible.push(assessment.window);
+      else if (assessment.status === 'unknown') unassessable = true;
+    }
   }
 
   const [best] = rankWindows(eligible);

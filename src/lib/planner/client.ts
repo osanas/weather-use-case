@@ -33,6 +33,7 @@ export function toPlanResponse(body: unknown, request: PlanRequest): PlanRespons
   if (!effective || !isNum(effective.maxPrecipitationProbability) || !isNum(effective.maxWindKmh)) return null;
   const criteria: PlanCriteria = {
     ...request,
+    days: request.days ?? 1,
     maxPrecipitationProbability: effective.maxPrecipitationProbability,
     maxWindKmh: effective.maxWindKmh,
   };
@@ -60,14 +61,14 @@ export async function submitPlan(
   signal?: AbortSignal,
   fetchImpl: typeof fetch = fetch,
 ): Promise<SubmitPlanResult> {
-  // Only the four user-selected fields; thresholds are resolved by the server.
-  const { cityId, activity, date, durationHours } = request;
+  // Only the user-selected fields; thresholds are resolved by the server.
+  const { cityId, activity, date, durationHours, days } = request;
   try {
     const response = await fetchImpl('/api/plan', {
       method: 'POST',
       signal,
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ cityId, activity, date, durationHours }),
+      body: JSON.stringify(days && days > 1 ? { cityId, activity, date, durationHours, days } : { cityId, activity, date, durationHours }),
     });
     const body: unknown = await response.json().catch(() => null);
     if (response.status === 400 && isObj(body)) {

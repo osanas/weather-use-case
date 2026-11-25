@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  activityName, answersToValues, chatView, clearAnswer, datesForWhen, isComplete, NO_ANSWERS,
+  activityName, answersToValues, chatView, clearAnswer, datesForWhen, daysForWhen, isComplete, matchesAnswers, NO_ANSWERS, resultDate, withFlexibleToday,
   type Answers, type ChatRequest, type ChatState,
 } from './conversation';
 import type { PlanRequest } from './criteria';
@@ -9,7 +9,7 @@ import type { PlanCriteria, PlanResponse } from './types';
 // Synthetic state only. 2027-06-14 is a Monday; the horizon runs to Sunday 2027-06-20.
 const bounds = { min: '2027-06-14', max: '2027-06-20' };
 const request: PlanRequest = { cityId: 'laval-qc', activity: 'hiking', date: '2027-06-19', durationHours: 2 };
-const criteria: PlanCriteria = { ...request, maxPrecipitationProbability: 35, maxWindKmh: 28 };
+const criteria: PlanCriteria = { ...request, days: 1, maxPrecipitationProbability: 35, maxWindKmh: 28 };
 const full: Answers = { activity: 'hiking', label: '', city: true, when: 'weekend', date: '2027-06-19', duration: '2' };
 
 const state = (answers: Partial<Answers> = {}, overrides: Partial<ChatState> = {}): ChatState => ({
@@ -130,10 +130,63 @@ describe('chatView', () => {
   });
 });
 
+describe('I’m flexible', () => {
+  const flexible: Partial<Answers> = { when: 'flexible', date: '2027-06-14' };
+  const flexRequest: PlanRequest = { ...request, date: '2027-06-14', days: 3 };
+
+  it('sets today and asks no day: the next question is the activity', () => {
+    const when = chatView(state());
+    expect(when.choices.find(c => c.label === 'I’m flexible')!.answer).toEqual({ when: 'flexible', date: '2027-06-14' });
+    const next = chatView(state(flexible));
+    expect(next.step).toBe('activity');
+    expect(next.turns.map(t => [t.key, t.answer])).toEqual([['when', 'I’m flexible']]);
+  });
+
+  it('renews a flexible date to the target city’s today, and leaves other choices alone', () => {
+    const answers = { ...full, ...flexible };
+    // Picked in Vancouver on the 14th, sent for Laval where it is already the 15th.
+    expect(withFlexibleToday(answers, '2027-06-15').date).toBe('2027-06-15');
+    expect(withFlexibleToday(answers, '2027-06-14')).toBe(answers);
+    expect(withFlexibleToday({ ...answers, when: 'today' }, '2027-06-15').date).toBe('2027-06-14');
+  });
+
+  it('searches three days, and only flexible does', () => {
+    expect(daysForWhen('flexible')).toBe(3);
+    for (const when of ['today', 'tomorrow', 'after', 'weekend', 'next-week', 'pick', null] as const) expect(daysForWhen(when)).toBe(1);
+  });
+
+  it('matches a request only when its searched days agree with the choice', () => {
+    const answers = { ...full, ...flexible };
+    expect(matchesAnswers(flexRequest, answers)).toBe(true);
+    expect(matchesAnswers({ ...flexRequest, days: undefined }, answers)).toBe(false);
+    expect(matchesAnswers(flexRequest, { ...answers, when: 'today' })).toBe(false);
+  });
+
+  it('says it looks over three days, without times or figures', () => {
+    const answers = { ...full, ...flexible };
+    const ready = chatView(state(answers));
+    expect(ready.prompt).toBe('Ready when you are. Shall I look over the next three days in Laval, Québec?');
+    const flexCriteria = { ...criteria, date: '2027-06-14', days: 3 };
+    const noMatch = chatView(state(answers, { request: { status: 'done', request: flexRequest, data: { outcome: 'no_match', mode: 'rule-based', criteria: flexCriteria } } }));
+    expect(noMatch.prompt).toBe('No time in the next three days stays within the limits. Try a shorter duration or another day.');
+    for (const view of [ready, noMatch]) expect(view.prompt).not.toMatch(TIME_OR_FIGURE);
+  });
+
+  it('dates a match by its window in the city zone, else by the first day requested', () => {
+    const flexCriteria = { ...criteria, date: '2027-06-14', days: 3 };
+    // 02:00Z on the 16th is still the 15th in Laval (EDT).
+    const match = {
+      outcome: 'match' as const, mode: 'rule-based' as const, criteria: flexCriteria,
+      start: '2027-06-16T02:00:00Z', end: '2027-06-16T03:00:00Z', maxPrecipitationProbability: 0, maxWindKmh: 0,
+    };
+    expect(resultDate(match, 'America/Toronto')).toBe('2027-06-15');
+    expect(resultDate({ outcome: 'no_match', criteria: flexCriteria }, 'America/Toronto')).toBe('2027-06-14');
+  });
+});
+
 describe('multi-day choices', () => {
   it('finds the coming weekend and next week inside the horizon', () => {
     expect(datesForWhen('weekend', bounds)).toEqual(['2027-06-19', '2027-06-20']);
-    expect(datesForWhen('flexible', bounds)).toHaveLength(7);
     // From a Wednesday, next week starts on Monday the 21st, past the horizon end.
     const wednesday = { min: '2027-06-16', max: '2027-06-22' };
     expect(datesForWhen('next-week', wednesday)).toEqual(['2027-06-21', '2027-06-22']);

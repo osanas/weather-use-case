@@ -1,6 +1,6 @@
 import { localDateString } from '@/lib/forecast';
 import type { HourlyPoint } from '@/lib/weather/types';
-import { matchesAnswers, type Answers, type ChatRequest } from './conversation';
+import { daysForWhen, matchesAnswers, type Answers, type ChatRequest } from './conversation';
 import { ACTIVITIES, type Activity, type Thresholds } from './types';
 
 /**
@@ -11,7 +11,10 @@ export type BoardPlan = {
   id: string;
   cityId: string;
   activity: Activity;
-  /** Local calendar date in the city's zone, or `null` while the day is not chosen. */
+  /**
+   * Local calendar date in the city's zone, or `null` while the day is not chosen. A flexible
+   * plan has no day until the planner finds its window; it then takes the window's day.
+   */
   date: string | null;
   durationHours: number | null;
   status: 'draft' | 'checking' | 'match' | 'no_match' | 'insufficient' | 'unavailable' | 'error';
@@ -27,13 +30,15 @@ export type BoardPlan = {
 /**
  * The board entry for the conversation's current answers and request, or `null` before an
  * activity is chosen. The request's outcome is used only when it was sent with exactly these
- * answers, so changing the day of a checked plan turns it back into a draft.
+ * answers, so changing the day of a checked plan turns it back into a draft. `timeZone` is the
+ * city's zone, used to place a flexible plan's window on its local day.
  */
 export function planFromChat(
   id: string,
   cityId: string,
   answers: Answers,
   request: ChatRequest | null,
+  timeZone: string,
 ): BoardPlan | null {
   if (!ACTIVITIES.includes(answers.activity as Activity)) return null;
   const hours = Number(answers.duration);
@@ -41,7 +46,7 @@ export function planFromChat(
     id,
     cityId,
     activity: answers.activity as Activity,
-    date: answers.date || null,
+    date: answers.when === 'flexible' ? null : answers.date || null,
     durationHours: Number.isInteger(hours) && hours > 0 ? hours : null,
     status: 'draft',
     answers,
@@ -54,6 +59,7 @@ export function planFromChat(
     case 'match':
       return {
         ...plan, status: 'match', start: data.start, end: data.end,
+        date: plan.date ?? localDateString(Date.parse(data.start), timeZone),
         limits: { maxPrecipitationProbability: data.criteria.maxPrecipitationProbability, maxWindKmh: data.criteria.maxWindKmh },
       };
     case 'no_match':
@@ -85,7 +91,7 @@ export const boardId = (conversationId: string, cityId: string) => `${conversati
 const conversationOf = (id: string) => id.slice(0, id.lastIndexOf('@'));
 
 const sameAnswers = (a: Answers, b: Answers) =>
-  a.activity === b.activity && a.date === b.date && a.duration.trim() === b.duration.trim();
+  a.activity === b.activity && daysForWhen(a.when) === daysForWhen(b.when) && a.date === b.date && a.duration.trim() === b.duration.trim();
 
 /**
  * Applies the conversation's current plan to the board:

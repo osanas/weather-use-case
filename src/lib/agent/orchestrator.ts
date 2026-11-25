@@ -31,7 +31,7 @@ export type AgentInput = {
 const SYSTEM_PROMPT = [
   'You help plan an outdoor activity from a weather forecast.',
   'Call get_day_forecast first, then rank_windows. Both tools take no arguments;',
-  'the server has already fixed the city, date, duration and limits.',
+  'the server has already fixed the city, days, duration and limits.',
   'Do not invent times or weather values. After rank_windows, reply with one short sentence.',
 ].join(' ');
 
@@ -41,6 +41,7 @@ export function buildUserMessage(criteria: PlanCriteria, cityName: string): stri
     city: cityName,
     activity: criteria.activity,
     date: criteria.date,
+    days: criteria.days,
     durationHours: criteria.durationHours,
     maxPrecipitationProbability: criteria.maxPrecipitationProbability,
     maxWindKmh: criteria.maxWindKmh,

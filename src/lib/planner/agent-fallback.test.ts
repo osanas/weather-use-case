@@ -156,7 +156,7 @@ describe('POST /api/plan with the agent', () => {
     const first = JSON.parse(bodies[0]!);
     expect(first.messages.map((m: { role: string }) => m.role)).toEqual(['system', 'user']);
     expect(JSON.parse(first.messages[1].content)).toEqual({
-      city: 'Laval, Québec', activity: 'hiking', date: '2027-06-14', durationHours: 2,
+      city: 'Laval, Québec', activity: 'hiking', date: '2027-06-14', days: 1, durationHours: 2,
       maxPrecipitationProbability: 35, maxWindKmh: 28,
     });
   });

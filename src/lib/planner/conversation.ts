@@ -1,12 +1,13 @@
+import { localDateString } from '@/lib/forecast';
 import { describeWeatherCode, formatDay, formatPercent, formatTemperature } from '@/lib/format';
 import { messages as t } from '@/lib/i18n/messages';
 import type { Units } from '@/lib/units';
 import type { DailySummary } from '@/lib/weather/types';
 import { datesIn, inBounds, nextWeekDates, weekendDates } from './calendar';
-import type { PlanRequest } from './criteria';
+import { MAX_SEARCH_DAYS, type PlanRequest } from './criteria';
 import { FORM_FIELDS, type DateBounds, type FormField, type PlanFormErrors, type PlanFormValues } from './form';
 import { addCalendarDays } from './planner';
-import { ACTIVITIES, type PlanResponse } from './types';
+import { ACTIVITIES, type PlanResponse, type PlanResult } from './types';
 
 /**
  * Pico's planning conversation as a pure function of the answers given so far. The chat
@@ -18,8 +19,15 @@ import { ACTIVITIES, type PlanResponse } from './types';
 export type GuideMood = 'hello' | 'thinking' | 'happy' | 'unsure';
 
 export type When = 'today' | 'tomorrow' | 'after' | 'weekend' | 'next-week' | 'flexible' | 'pick';
-const MULTI_DAY: readonly When[] = ['weekend', 'next-week', 'flexible'];
+/** Choices that offer their days as a second question. */
+const MULTI_DAY: readonly When[] = ['weekend', 'next-week'];
 export const isMultiDay = (when: When | null) => when !== null && MULTI_DAY.includes(when);
+
+/** "I'm flexible" asks no day: the planner searches today and the next two days. */
+export const FLEXIBLE_DAYS = MAX_SEARCH_DAYS;
+
+/** Local days the plan request searches for this choice, from its date. */
+export const daysForWhen = (when: When | null) => (when === 'flexible' ? FLEXIBLE_DAYS : 1);
 
 export type Answers = {
   /** A planning profile from `ACTIVITIES`; `other` when the visitor typed their own. */
@@ -105,9 +113,12 @@ export function relativeDay(date: string, bounds: DateBounds | null): string {
   return formatDay(date);
 }
 
-/** The single date for a one-day choice, or `null` outside the horizon. */
+/**
+ * The date a one-day choice sets, or `null` outside the horizon. "I'm flexible" sets today,
+ * the first of the days it searches.
+ */
 export function dateForWhen(when: When, bounds: DateBounds): string | null {
-  const offset = { today: 0, tomorrow: 1, after: 2 }[when as 'today' | 'tomorrow' | 'after'];
+  const offset = { today: 0, tomorrow: 1, after: 2, flexible: 0 }[when as 'today' | 'tomorrow' | 'after' | 'flexible'];
   if (offset === undefined) return null;
   const date = addCalendarDays(bounds.min, offset);
   return inBounds(date, bounds) ? date : null;
@@ -119,12 +130,28 @@ export function dateForWhen(when: When, bounds: DateBounds): string | null {
  */
 export function datesForWhen(when: When, bounds: DateBounds): string[] {
   if (when === 'weekend') return weekendDates(bounds);
-  if (when === 'flexible') return datesIn(bounds);
   if (when === 'next-week') {
     const dates = nextWeekDates(bounds);
     return dates.length > 0 ? dates : datesIn(bounds).slice(-3);
   }
   return [];
+}
+
+/**
+ * The local day a planner result is about: the day of the found window for a match (it may
+ * be any searched day when the visitor is flexible), else the first day requested.
+ */
+export function resultDate(data: PlanResult, timeZone: string): string {
+  return data.outcome === 'match' ? localDateString(Date.parse(data.start), timeZone) : data.criteria.date;
+}
+
+/**
+ * "I'm flexible" means today in the city the plan is for, whenever it is sent. The badge sets
+ * the date of the city selected at that moment; the visitor may then choose a city in another
+ * zone, or reopen the plan after midnight, so the date is renewed from that city's `today`.
+ */
+export function withFlexibleToday(answers: Answers, today: string): Answers {
+  return answers.when === 'flexible' && answers.date !== today ? { ...answers, date: today } : answers;
 }
 
 export function answersToValues(answers: Answers): PlanFormValues {
@@ -149,6 +176,7 @@ export function clearAnswer(answers: Answers, key: TurnKey): Answers {
 export function matchesAnswers(request: PlanRequest, answers: Answers): boolean {
   return request.activity === answers.activity
     && request.date === answers.date
+    && (request.days ?? 1) === daysForWhen(answers.when)
     && String(request.durationHours) === answers.duration.trim();
 }
 
@@ -160,9 +188,8 @@ function dayDetail(date: string, days: readonly DailySummary[] | null, units: Un
 }
 
 function dayQuestion(when: When | null, bounds: DateBounds | null): string {
-  if (when === 'weekend') return t.ask.dayWeekend;
   if (when === 'next-week') return t.ask.dayNextWeek(bounds ? formatDay(bounds.max) : 'the end of the week');
-  return t.ask.dayFlexible;
+  return t.ask.dayWeekend;
 }
 
 function whenAnswer(answers: Answers, bounds: DateBounds | null): string {
@@ -227,7 +254,7 @@ function resultView(request: ChatRequest): Omit<ChatView, 'turns'> {
   if (request.status === 'error') return view('error', t.ask.error, 'unsure', []);
   switch (request.data.outcome) {
     case 'match': return view('result', t.ask.match, 'happy');
-    case 'no_match': return view('result', t.ask.noMatch, 'unsure');
+    case 'no_match': return view('result', (request.request.days ?? 1) > 1 ? t.ask.noMatchFlexible : t.ask.noMatch, 'unsure');
     case 'insufficient': return view('result', t.ask.insufficient, 'unsure');
     case 'planning_unavailable': return view('result', t.ask.unavailable, 'unsure');
   }
@@ -294,7 +321,7 @@ export function chatView(state: ChatState): ChatView {
   if (request && matchesAnswers(request.request, answers)) return { turns, ...resultView(request) };
   return {
     turns,
-    step: 'ready', prompt: t.ask.ready(state.cityName), mood: 'happy', announce: true, input: null,
+    step: 'ready', prompt: answers.when === 'flexible' ? t.ask.readyFlexible(state.cityName) : t.ask.ready(state.cityName), mood: 'happy', announce: true, input: null,
     choices: [{ id: 'find', label: t.next.find, submit: true }],
   };
 }

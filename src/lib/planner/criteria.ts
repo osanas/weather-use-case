@@ -2,7 +2,10 @@ import { z } from 'zod';
 import { isCityIdFormat } from '@/lib/cities';
 import { ACTIVITIES } from './types';
 
-const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+/** Most local days one plan request may search ("I'm flexible": today and the next two). */
+export const MAX_SEARCH_DAYS = 3;
+
+const ISO_DATE =/^(\d{4})-(\d{2})-(\d{2})$/;
 
 /** True for a real Gregorian calendar date in YYYY-MM-DD form (rejects 2027-02-30). */
 export function isCalendarDate(value: string): boolean {
@@ -26,6 +29,8 @@ export const planRequestSchema = z
     activity: z.enum(ACTIVITIES),
     date: z.string().refine(isCalendarDate, 'Date must be a valid YYYY-MM-DD date.'),
     durationHours: z.number().int().min(1).max(4),
+    /** Local days searched from `date` ("I'm flexible" sends 3). Absent means the one day. */
+    days: z.number().int().min(1).max(MAX_SEARCH_DAYS).optional(),
   })
   .strict();
 

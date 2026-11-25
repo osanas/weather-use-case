@@ -49,18 +49,24 @@ export type FormValidation =
  * browser only sends structured, valid user-selected fields. Thresholds are never part of
  * the form; the server resolves them. The server still validates everything.
  */
-export function validatePlanForm(values: PlanFormValues, cityId: string, bounds: DateBounds): FormValidation {
+export function validatePlanForm(values: PlanFormValues, cityId: string, bounds: DateBounds, days = 1): FormValidation {
   const errors: PlanFormErrors = {};
   const parsed = parsePlanRequest({
     cityId,
     activity: values.activity === '' ? undefined : values.activity,
     date: values.date === '' ? undefined : values.date,
     durationHours: toNumber(values.durationHours),
+    // Only "I'm flexible" searches several days; a one-day request keeps the original body.
+    ...(days > 1 ? { days } : {}),
   });
   if (!parsed.ok) {
-    for (const field of parsed.fields) errors[field as FormField | 'cityId'] = fieldMessage(field, bounds);
+    // `days` belongs to the day answer ("I'm flexible"), so its error returns to that question.
+    for (const field of parsed.fields) {
+      const key = field === 'days' ? 'date' : field;
+      errors[key as FormField | 'cityId'] = fieldMessage(key, bounds);
+    }
   }
-  if (!errors.date && (values.date < bounds.min || values.date > bounds.max)) {
+  if (!errors.date && (values.date < bounds.min || addCalendarDays(values.date, days - 1) > bounds.max)) {
     errors.date = fieldMessage('date', bounds);
   }
   if (parsed.ok && Object.keys(errors).length === 0) return { ok: true, request: parsed.request };
