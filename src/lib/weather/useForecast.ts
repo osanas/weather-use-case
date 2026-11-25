@@ -7,7 +7,7 @@ import type { WeatherResponse } from './types';
 export type ForecastState =
   | { status: 'loading' }
   | { status: 'ready'; data: WeatherResponse }
-  | { status: 'error'; message: string };
+  | { status: 'error'; code?: string };
 
 type Loaded = { cityId: string; state: ForecastState };
 
@@ -29,7 +29,7 @@ export function useForecast(cityId: string) {
       setNow(Date.now());
       setLoaded({
         cityId,
-        state: result.ok ? { status: 'ready', data: result.data } : { status: 'error', message: result.message },
+        state: result.ok ? { status: 'ready', data: result.data } : { status: 'error', code: result.code },
       });
     });
     return () => controller.abort();

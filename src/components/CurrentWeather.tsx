@@ -5,27 +5,30 @@ import {
   formatWind,
 } from '@/lib/format';
 import type { WeatherResponse } from '@/lib/weather/types';
+import { useLocale, useMessages } from './Language';
 import { useUnits } from './Units';
 
 export function CurrentWeather({ data, cityName }: { data: WeatherResponse; cityName: string }) {
   const units = useUnits();
+  const locale = useLocale();
+  const t = useMessages();
   return (
     <section aria-labelledby="current-heading" className="card">
-      <h2 id="current-heading">Current conditions in {cityName}</h2>
-      <p className="temperature" aria-label="Temperature">
-        {formatTemperature(data.current.temperatureC, units)}
+      <h2 id="current-heading">{t.current.heading(cityName)}</h2>
+      <p className="temperature" aria-label={t.current.temperature}>
+        {formatTemperature(data.current.temperatureC, units, locale)}
       </p>
       <dl>
-        <dt>Conditions</dt>
-        <dd>{describeWeatherCode(data.current.weatherCode)}</dd>
-        <dt>Wind</dt>
-        <dd>{formatWind(data.current.windKmh, units)}</dd>
-        <dt>Observed</dt>
-        <dd>{formatLocalTime(data.current.time, data.timezone)}</dd>
-        <dt>Updated</dt>
-        <dd>{formatLocalTime(data.fetchedAt, data.timezone)}</dd>
+        <dt>{t.current.conditions}</dt>
+        <dd>{describeWeatherCode(data.current.weatherCode, locale)}</dd>
+        <dt>{t.current.wind}</dt>
+        <dd>{formatWind(data.current.windKmh, units, locale)}</dd>
+        <dt>{t.current.observed}</dt>
+        <dd>{formatLocalTime(data.current.time, data.timezone, locale)}</dd>
+        <dt>{t.current.updated}</dt>
+        <dd>{formatLocalTime(data.fetchedAt, data.timezone, locale)}</dd>
       </dl>
-      <p className="note">Times are shown in {cityName} local time.</p>
+      <p className="note">{t.current.localTime(cityName)}</p>
     </section>
   );
 }

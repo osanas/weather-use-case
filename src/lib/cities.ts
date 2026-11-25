@@ -1,3 +1,5 @@
+import type { Locale } from './i18n';
+
 export type City = {
   /** Public catalogue identifier used in every API request. */
   id: string;
@@ -73,10 +75,23 @@ export function getCityById(id: unknown): City | undefined {
   return CITIES.find(city => city.id === id);
 }
 
-export function provinceName(city: City): string {
-  return PROVINCE_NAMES[city.province] ?? city.province;
+/** French names that differ from the English ones. */
+export const PROVINCE_NAMES_FR: Readonly<Record<string, string>> = {
+  BC: 'Colombie-Britannique', NL: 'Terre-Neuve-et-Labrador', NS: 'Nouvelle-Écosse', NB: 'Nouveau-Brunswick',
+  NT: 'Territoires du Nord-Ouest', PE: 'Île-du-Prince-Édouard', CA: 'Californie', FL: 'Floride', GA: 'Géorgie',
+  HI: 'Hawaï', LA: 'Louisiane', NC: 'Caroline du Nord', ND: 'Dakota du Nord', NM: 'Nouveau-Mexique',
+  PA: 'Pennsylvanie', SC: 'Caroline du Sud', SD: 'Dakota du Sud', VA: 'Virginie',
+  WV: 'Virginie-Occidentale', DC: 'District de Columbia',
+};
+
+export function provinceName(city: City, locale: Locale = 'en'): string {
+  return (locale === 'fr' ? PROVINCE_NAMES_FR[city.province] : undefined) ?? PROVINCE_NAMES[city.province] ?? city.province;
 }
 
-export function cityDisplayName(city: City): string {
-  return `${city.label}, ${provinceName(city)}`;
+/** The city's name alone; only Québec City is named differently in French. */
+export const cityLabel = (city: City, locale: Locale = 'en') =>
+  locale === 'fr' && city.id === 'quebec-qc' ? 'Québec' : city.label;
+
+export function cityDisplayName(city: City, locale: Locale = 'en'): string {
+  return `${cityLabel(city, locale)}, ${provinceName(city, locale)}`;
 }

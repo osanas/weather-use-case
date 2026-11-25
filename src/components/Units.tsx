@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useSyncExternalStore, type ReactNode } from 'react';
 import type { Units } from '@/lib/units';
+import { useMessages } from './Language';
 
 /** Per-browser display preference; not personal data, never sent. */
 const KEY = 'weather-window.units';
@@ -50,8 +51,9 @@ export const useUnits = () => useContext(UnitsContext);
 /** Two-option switch between °C/km/h and °F/mph. */
 export function UnitsToggle() {
   const units = useUnits();
+  const t = useMessages();
   return (
-    <div className="units-toggle" role="group" aria-label="Units">
+    <div className="units-toggle" role="group" aria-label={t.header.units}>
       {(['metric', 'imperial'] as const).map(option => (
         <button
           key={option}

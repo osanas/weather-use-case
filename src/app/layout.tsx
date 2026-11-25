@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, Pixelify_Sans } from 'next/font/google';
 import type { ReactNode } from 'react';
+import { LanguageProvider } from '@/components/Language';
 import './globals.css';
 import './world-tokens.css';
 import './world.css';
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${body.variable} ${pixel.variable}`}>
-      <body>{children}</body>
+      <body><LanguageProvider>{children}</LanguageProvider></body>
     </html>
   );
 }

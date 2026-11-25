@@ -1,3 +1,4 @@
+import { INTL_LOCALE, type Locale } from './i18n';
 import { toDisplay, type Units } from './units';
 import { dataDomain, finite, type Domain } from './forecast-chart';
 import type { HourlyPoint } from './weather/types';
@@ -88,11 +89,11 @@ export type HourMark = { index: number; hour: number; label: string };
  * Columns whose local hour is a multiple of three, labelled "00:00", "03:00"… in the city's
  * zone. On daylight-saving days the 23 or 25 hourly points keep their own local hours.
  */
-export function threeHourMarks(hours: readonly HourlyPoint[], timeZone: string): HourMark[] {
+export function threeHourMarks(hours: readonly HourlyPoint[], timeZone: string, locale: Locale = 'en'): HourMark[] {
   return hours.flatMap((hour, index) => {
     const local = localParts(hour.time, timeZone)?.hour;
     if (local === undefined || !Number.isInteger(local) || local % 3 !== 0) return [];
-    return [{ index, hour: local, label: `${String(local).padStart(2, '0')}:00` }];
+    return [{ index, hour: local, label: `${String(local).padStart(2, '0')}${locale === 'fr' ? ' h' : ':00'}` }];
   });
 }
 
@@ -125,20 +126,20 @@ const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
  * Weekday of a local calendar date (YYYY-MM-DD), e.g. "Fri" or "Friday". The date is already
  * local to the city, so it is read at UTC noon in UTC. Unparseable dates give an empty string.
  */
-export function weekdayOf(date: string, style: 'short' | 'long'): string {
+export function weekdayOf(date: string, style: 'short' | 'long', locale: Locale = 'en'): string {
   const match = ISO_DATE.exec(date);
   if (!match) return '';
   const instant = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12);
   if (Number.isNaN(instant)) return '';
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC', weekday: style }).format(instant);
+  return new Intl.DateTimeFormat(INTL_LOCALE[locale], { timeZone: 'UTC', weekday: style }).format(instant);
 }
 
 /** Short value printed above the curve: "-8°", "40%" or "24" (km/h). Empty when missing. */
-export function compactValue(value: number | null, metric: Metric, units: Units = 'metric'): string {
+export function compactValue(value: number | null, metric: Metric, units: Units = 'metric', locale: Locale = 'en'): string {
   if (!finite(value)) return '';
   const shown = metric === 'precipitation' ? value : toDisplay(value, metric, units);
   const rounded = Math.round(shown) || 0;
   if (metric === 'temperature') return `${rounded}°`;
-  if (metric === 'precipitation') return `${Math.min(100, Math.max(0, rounded))}%`;
+  if (metric === 'precipitation') return `${Math.min(100, Math.max(0, rounded))}${locale === 'fr' ? '\u00a0' : ''}%`;
   return String(rounded);
 }

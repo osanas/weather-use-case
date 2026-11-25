@@ -1,13 +1,12 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
-import { messages as t } from '@/lib/i18n/messages';
 import {
   inBounds, longDayLabel, monthGrid, monthLabel, moveDate, type CalendarKey,
 } from '@/lib/planner/calendar';
 import type { DateBounds } from '@/lib/planner/form';
+import { useLocale, useMessages } from '../Language';
 
-const WEEKDAYS = [['Su', 'Sunday'], ['Mo', 'Monday'], ['Tu', 'Tuesday'], ['We', 'Wednesday'], ['Th', 'Thursday'], ['Fr', 'Friday'], ['Sa', 'Saturday']];
 const KEYS = new Set<string>(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown']);
 
 /**
@@ -21,6 +20,8 @@ export function DatePicker({ bounds, value, onPick }: {
   onPick: (date: string) => void;
 }) {
   const id = useId();
+  const locale = useLocale();
+  const t = useMessages();
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(value && inBounds(value, bounds) ? value : bounds.min);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -83,13 +84,13 @@ export function DatePicker({ bounds, value, onPick }: {
           <div className="picker-head">
             <button type="button" className="picker-nav" aria-label={t.picker.previous} disabled={!canPrev}
               onClick={() => setFocused(d => moveDate(d, 'PageUp', bounds))}>‹</button>
-            <h3 id={`${id}-month`} aria-live="polite">{monthLabel(focused)}</h3>
+            <h3 id={`${id}-month`} aria-live="polite">{monthLabel(focused, locale)}</h3>
             <button type="button" className="picker-nav" aria-label={t.picker.next} disabled={!canNext}
               onClick={() => setFocused(d => moveDate(d, 'PageDown', bounds))}>›</button>
           </div>
           <table ref={gridRef} role="grid" aria-labelledby={`${id}-month`} onKeyDown={onGridKey}>
             <thead>
-              <tr>{WEEKDAYS.map(([short, long]) => <th key={long} scope="col" abbr={long}>{short}</th>)}</tr>
+              <tr>{t.picker.weekdays.map(([short, long]) => <th key={long} scope="col" abbr={long}>{short}</th>)}</tr>
             </thead>
             <tbody>
               {month.map((week, i) => (
@@ -104,7 +105,7 @@ export function DatePicker({ bounds, value, onPick }: {
                           data-date={date}
                           tabIndex={date === focused ? 0 : -1}
                           disabled={!enabled}
-                          aria-label={enabled ? longDayLabel(date) : `${longDayLabel(date)}, ${t.picker.unavailable}`}
+                          aria-label={enabled ? longDayLabel(date, locale) : `${longDayLabel(date, locale)}, ${t.picker.unavailable}`}
                           aria-current={date === bounds.min ? 'date' : undefined}
                           className={date === value ? 'picked' : undefined}
                           onClick={() => pick(date)}

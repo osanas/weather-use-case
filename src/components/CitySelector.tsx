@@ -4,6 +4,7 @@ import { useId, useMemo, useState, type KeyboardEvent } from 'react';
 import { loadCatalogue } from '@/lib/catalogue-client';
 import { cityDisplayName, type City } from '@/lib/cities';
 import { searchCities } from '@/lib/city-search';
+import { useLocale, useMessages } from './Language';
 
 /** Suggestions shown at once; the full catalogue has about 8,900 cities. */
 const MAX_RESULTS = 8;
@@ -14,7 +15,7 @@ type Props = {
   /** The selected city, or `null` for none (the chat's "Other city" search). */
   selected: City | null;
   onSelect: (city: City) => void;
-  /** Visible label; the page's main selector is "City". */
+  /** Visible label; the page's main selector is "City" in the interface language. */
   label?: string;
 };
 
@@ -23,13 +24,15 @@ type Props = {
  * once on first focus and searched locally; keystrokes never leave the browser. Only a
  * confirmed selection calls `onSelect`.
  */
-export function CitySelector({ cities, selected, onSelect, label = 'City' }: Props) {
+export function CitySelector({ cities, selected, onSelect, label }: Props) {
+  const locale = useLocale();
+  const t = useMessages();
   const baseId = useId();
   const inputId = `${baseId}-input`;
   const listId = `${baseId}-list`;
   const optionId = (i: number) => `${baseId}-option-${i}`;
 
-  const selectedLabel = selected ? cityDisplayName(selected) : '';
+  const selectedLabel = selected ? cityDisplayName(selected, locale) : '';
   const [catalogue, setCatalogue] = useState<City[] | null>(null);
   const [loading, setLoading] = useState<'idle' | 'loading' | 'failed'>('idle');
 
@@ -64,7 +67,7 @@ export function CitySelector({ cities, selected, onSelect, label = 'City' }: Pro
     setOpen(false);
     setActive(-1);
     setEditing(false);
-    setQuery(cityDisplayName(city));
+    setQuery(cityDisplayName(city, locale));
     if (city.id !== selected?.id) onSelect(city);
   }
 
@@ -99,7 +102,7 @@ export function CitySelector({ cities, selected, onSelect, label = 'City' }: Pro
 
   return (
     <div className="city-selector">
-      <label htmlFor={inputId}>{label}</label>
+      <label htmlFor={inputId}>{label ?? t.city.label}</label>
       <input
         id={inputId}
         type="text"
@@ -110,7 +113,7 @@ export function CitySelector({ cities, selected, onSelect, label = 'City' }: Pro
         aria-expanded={expanded}
         aria-controls={listId}
         aria-activedescendant={expanded && active >= 0 ? optionId(active) : undefined}
-        value={query}
+        value={editing ? query : selectedLabel}
         onChange={event => {
           setQuery(event.target.value);
           setEditing(true);
@@ -122,7 +125,7 @@ export function CitySelector({ cities, selected, onSelect, label = 'City' }: Pro
         onKeyDown={onKeyDown}
         onBlur={close}
       />
-      <ul id={listId} role="listbox" aria-label="Cities" hidden={!expanded}>
+      <ul id={listId} role="listbox" aria-label={t.city.list} hidden={!expanded}>
         {expanded && results.map((city, i) => (
           <li
             key={city.id}
@@ -134,15 +137,15 @@ export function CitySelector({ cities, selected, onSelect, label = 'City' }: Pro
             onMouseDown={event => event.preventDefault()}
             onClick={() => choose(city)}
           >
-            {cityDisplayName(city)}
+            {cityDisplayName(city, locale)}
           </li>
         ))}
       </ul>
       <p role="status" className="search-status">
         {!open || !editing ? ''
-          : loading === 'loading' && !catalogue ? 'Loading cities…'
-            : loading === 'failed' ? 'Only the main cities are available right now. Focus the field again to retry.'
-              : results.length === 0 ? 'No matching cities' : ''}
+          : loading === 'loading' && !catalogue ? t.city.loading
+            : loading === 'failed' ? t.city.failed
+              : results.length === 0 ? t.city.none : ''}
       </p>
     </div>
   );

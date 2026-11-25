@@ -1,8 +1,117 @@
 /**
- * Interface text for the planning chat. English only for now; WEA-20 adds French by
- * providing another object with the same shape and a language switch.
+ * English interface text. `fr.ts` provides the French dictionary with the same shape
+ * (WEA-20); `index.ts` picks one by locale.
  */
 export const messages = {
+  common: { unavailable: 'Unavailable', retry: 'Retry', refresh: 'Refresh', tryAgain: 'Try again', today: 'Today', tomorrow: 'Tomorrow' },
+  language: { group: 'Language' },
+  header: { units: 'Units' },
+  footer: { weatherBy: 'Weather data by', citiesFrom: ' · Cities from ', privacy: 'Privacy notice' },
+  city: {
+    label: 'City',
+    other: 'Other city',
+    list: 'Cities',
+    loading: 'Loading cities…',
+    failed: 'Only the main cities are available right now. Focus the field again to retry.',
+    none: 'No matching cities',
+  },
+  /** Server error codes mapped to client text; the API contract is unchanged. */
+  errors: {
+    weather: 'Weather is temporarily unavailable. Try again.',
+    unknownCity: 'Unknown city.',
+    planning: 'Planning is temporarily unavailable. Try again.',
+    tooLarge: 'The planning request is too large.',
+    mediaType: 'Send the planning criteria as JSON.',
+    criteria: 'Check the planning criteria and try again.',
+  },
+  validation: {
+    cityId: 'Choose a city from the list.',
+    activity: 'Choose an activity.',
+    dateRange: (min: string, max: string) => `Choose a date from ${min} to ${max}.`,
+    date: 'Choose a date within the forecast period.',
+    durationHours: 'Enter a whole number of hours from 1 to 4.',
+  },
+  current: {
+    heading: (city: string) => `Current conditions in ${city}`,
+    temperature: 'Temperature',
+    conditions: 'Conditions',
+    wind: 'Wind',
+    observed: 'Observed',
+    updated: 'Updated',
+    localTime: (city: string) => `Times are shown in ${city} local time.`,
+    loading: (city: string) => `Loading forecast for ${city}…`,
+    stale: (updated: string) => `This forecast is out of date. Last updated ${updated}.`,
+  },
+  live: {
+    loading: 'Loading live Montréal weather…',
+    now: (conditions: string, temperature: string, updated: string) =>
+      `Live in Montréal: ${conditions}, ${temperature} · Updated ${updated}`,
+    unavailable: 'Live Montréal weather is unavailable right now.',
+  },
+  widget: {
+    heading: 'Forecast',
+    chart: 'Chart',
+    hourlyChart: 'Hourly chart',
+    metric: { temperature: 'Temperature', precipitation: 'Precipitation', wind: 'Wind' },
+    chance: '% chance',
+    limit: (value: string) => `Limit ${value}`,
+    plannedWindow: 'Planned window',
+    tableCaption: (metric: string, day: string) => `${metric} on ${day}`,
+    time: 'Time',
+    low: 'Low',
+    high: 'High',
+    day: 'Day',
+    upTo: (wind: string) => `Up to ${wind}`,
+    caption: (metric: string, unit: string, day: string) => `${metric} (${unit}) by hour, ${day}`,
+    noHourly: 'No hourly forecast is available for this day.',
+    noUpcoming: 'No upcoming hourly forecast is available.',
+    noDaily: 'No daily forecast is available.',
+    days: 'Forecast days',
+    dayName: (isToday: boolean, day: string) => (isToday ? `Today, ${day}` : day),
+    dayLabel: (name: string, conditions: string, high: string, low: string) => `${name}: ${conditions}, high ${high}, low ${low}`,
+    hourlyTable: 'Hourly forecast',
+    dailyTable: '5-day forecast',
+  },
+  result: {
+    region: 'Planning result',
+    how: 'How Pico chose this',
+    finding: (city: string) => `Finding the best time in ${city}…`,
+    unavailableTitle: 'Activity planning is temporarily unavailable',
+    unavailableText: (city: string) => `No time can be recommended right now. The forecast for ${city} above is still available.`,
+    mode: { agent: 'AI-assisted recommendation', 'rule-based': 'Rule-based recommendation' },
+    bestTime: (day: string, from: string, to: string) => `Best time: ${day}, ${from} to ${to}`,
+    highestPrecipitation: 'Highest precipitation probability',
+    highestWind: 'Highest sustained wind',
+    explanation: (v: { activity: string; maxPrecipitation: string; maxWind: string; hours: number; precipitation: string; wind: string }) =>
+      `Every hour stays within the ${v.activity.toLowerCase()} limits of ${v.maxPrecipitation} precipitation chance and ${v.maxWind} wind. Among the eligible ${v.hours}-hour periods, this one has the lowest precipitation chance (${v.precipitation}), then the lightest wind (${v.wind}), then the earliest start.`,
+    basedOn: (city: string) => `Based on the Open-Meteo forecast for ${city}. Forecast conditions can change, so check again before you go.`,
+    noMatchTitle: 'No time meets these limits',
+    nextDays: (n: number) => `the next ${n} days`,
+    noMatchText: (v: { hours: number; city: string; day: string; days: number }) =>
+      `No ${v.hours}-hour period ${v.days > 1 ? `in the next ${v.days} days` : `on ${v.day}`} in ${v.city} stays within the precipitation and wind limits for every hour. Try another date or a shorter duration.`,
+    insufficientTitle: 'Forecast insufficient',
+    stale: 'The forecast is out of date, so a reliable time cannot be recommended.',
+    missing: (period: string, city: string) => `The forecast for ${period} in ${city} is missing readings, so a reliable time cannot be recommended.`,
+    constraints: 'Constraints used',
+    activity: 'Activity',
+    profileLimits: (name: string, profile: string) => `${name} (${profile} limits)`,
+    daysSearched: 'Days searched',
+    date: 'Date',
+    range: (from: string, to: string) => `${from} to ${to}`,
+    duration: 'Duration',
+    maxPrecipitation: 'Maximum precipitation',
+    maxWind: 'Maximum wind',
+  },
+  /** WMO weather codes. */
+  weather: {
+    0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast', 45: 'Fog', 48: 'Depositing rime fog',
+    51: 'Light drizzle', 53: 'Moderate drizzle', 55: 'Dense drizzle', 56: 'Light freezing drizzle', 57: 'Dense freezing drizzle',
+    61: 'Slight rain', 63: 'Moderate rain', 65: 'Heavy rain', 66: 'Light freezing rain', 67: 'Heavy freezing rain',
+    71: 'Slight snowfall', 73: 'Moderate snowfall', 75: 'Heavy snowfall', 77: 'Snow grains',
+    80: 'Slight rain showers', 81: 'Moderate rain showers', 82: 'Violent rain showers',
+    85: 'Slight snow showers', 86: 'Heavy snow showers',
+    95: 'Thunderstorm', 96: 'Thunderstorm with slight hail', 99: 'Thunderstorm with heavy hail',
+  } as Record<number, string>,
   chat: {
     heading: 'Plan an activity',
     conversation: 'Conversation with Pico',
@@ -33,6 +142,7 @@ export const messages = {
     insufficient: 'The forecast doesn’t have enough to go on. You can try again.',
     unavailable: 'Planning is paused right now, but the forecast is still there.',
     error: 'I couldn’t get an answer this time. Use Retry to ask again.',
+    endOfWeek: 'the end of the week',
     fix: (field: string, message: string) => `One thing to fix first: ${field}. ${message}`,
     fixForm: 'Something needs another look.',
   },
@@ -49,10 +159,11 @@ export const messages = {
     flexible: 'I’m flexible',
     pick: 'Pick a date',
   },
-  city: { other: 'Other city' },
   duration: (hours: number) => (hours === 1 ? '1 hour' : `${hours} hours`),
   next: { another: 'Plan another activity', otherDay: 'Try another day', duration: 'Change duration', find: 'Find best time' },
+  rain: (chance: string) => `${chance} rain`,
   picker: {
+    weekdays: [['Su', 'Sunday'], ['Mo', 'Monday'], ['Tu', 'Tuesday'], ['We', 'Wednesday'], ['Th', 'Thursday'], ['Fr', 'Friday'], ['Sa', 'Saturday']],
     open: 'Pick a date',
     dialog: 'Choose a date',
     previous: 'Previous month',
@@ -66,6 +177,11 @@ export const messages = {
     label: 'Your activity',
     placeholder: 'For example: walk the dog',
     hint: 'Only shown on this page. Pico plans it with the “Other activity” limits.',
+    errors: {
+      short: (min: number) => `Type at least ${min} characters.`,
+      long: (max: number) => `Keep it to ${max} characters or fewer.`,
+      characters: 'Use letters, numbers, spaces and simple punctuation only.',
+    },
   },
   card: {
     planned: (activity: string) => `${activity} plan`,
@@ -92,6 +208,6 @@ export const messages = {
     plan: (parts: string) => `${parts}. Open in the chat`,
     unscheduledDay: 'day not chosen',
   },
-} as const;
+};
 
 export type Messages = typeof messages;

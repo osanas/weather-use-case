@@ -8,7 +8,7 @@ export type SubmitPlanResult =
   /** HTTP 400: the server rejected these criteria fields. */
   | { ok: false; kind: 'invalid'; fields: string[]; message: string }
   /** Network failure, 413/415/5xx or a malformed body. Retrying the same request may work. */
-  | { ok: false; kind: 'unavailable'; message: string };
+  | { ok: false; kind: 'unavailable'; message: string; code?: string };
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -78,7 +78,8 @@ export async function submitPlan(
     }
     if (!response.ok) {
       const message = isObj(body) && typeof body.message === 'string' ? body.message : PLAN_UNAVAILABLE;
-      return { ok: false, kind: 'unavailable', message };
+      const code = isObj(body) && typeof body.error === 'string' ? body.error : undefined;
+      return { ok: false, kind: 'unavailable', message, ...(code ? { code } : {}) };
     }
     const data = toPlanResponse(body, request);
     return data ? { ok: true, data } : { ok: false, kind: 'unavailable', message: PLAN_UNAVAILABLE };

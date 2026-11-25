@@ -5,12 +5,14 @@ export function normalizeSearchText(value: string): string {
   return value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
-type Keys = { label: string; region: string; code: string };
+type Keys = { label: string; regions: string[]; code: string };
 const keys = new WeakMap<City, Keys>();
 function keysFor(city: City): Keys {
   let k = keys.get(city);
   if (!k) {
-    k = { label: normalizeSearchText(city.label), region: normalizeSearchText(provinceName(city)), code: city.province.toLowerCase() };
+    // Province and state names match in both interface languages.
+    const regions = [...new Set([provinceName(city, 'en'), provinceName(city, 'fr')].map(normalizeSearchText))];
+    k = { label: normalizeSearchText(city.label), regions, code: city.province.toLowerCase() };
     keys.set(city, k);
   }
   return k;
@@ -38,10 +40,10 @@ export function searchCities(query: string, cities: readonly City[], limit = Inf
   const ranked: { city: City; rank: number }[] = [];
   for (const city of cities) {
     const k = keysFor(city);
-    if (region && !(k.code === region || k.region.startsWith(region))) continue;
+    if (region && !(k.code === region || k.regions.some(r => r.startsWith(region)))) continue;
     if (k.label.startsWith(name)) ranked.push({ city, rank: 0 });
-    else if (!region && `${k.label} ${k.region}`.startsWith(q)) ranked.push({ city, rank: 1 });
-    else if (k.label.includes(name) || (!region && k.region.includes(q))) ranked.push({ city, rank: 2 });
+    else if (!region && k.regions.some(r => `${k.label} ${r}`.startsWith(q))) ranked.push({ city, rank: 1 });
+    else if (k.label.includes(name) || (!region && k.regions.some(r => r.includes(q)))) ranked.push({ city, rank: 2 });
   }
   return ranked
     .sort((a, b) => a.rank - b.rank || byPopulationThenLabel(a.city, b.city))

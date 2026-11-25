@@ -56,8 +56,8 @@ test('selects a city with the keyboard only, without requests while typing', asy
   await expect.poll(() => requested).toContain(BACKDROP_CITY_ID);
 
   const combobox = page.getByRole('combobox', { name: 'City' });
-  // The header's units switch (two buttons) comes first in the tab order.
-  for (let i = 0; i < 3; i++) await page.keyboard.press('Tab');
+  // The header's units and language switches (two buttons each) come first in the tab order.
+  for (let i = 0; i < 5; i++) await page.keyboard.press('Tab');
   await expect(combobox).toBeFocused();
   await page.keyboard.type('mont');
   await expect(combobox).toHaveAttribute('aria-expanded', 'true');

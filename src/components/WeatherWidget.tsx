@@ -10,8 +10,9 @@ import {
   formatPercent,
   formatTemperature,
   formatWind,
-  UNAVAILABLE,
+  unavailable,
 } from '@/lib/format';
+import type { Locale, Messages } from '@/lib/i18n';
 import type { DailySummary, HourlyPoint, WeatherResponse } from '@/lib/weather/types';
 import {
   compactValue,
@@ -32,6 +33,7 @@ import {
 import { ICONS, iconForCode } from '@/lib/world/icons';
 import { DailyTable, HourlyTable } from './ForecastTables';
 import { PixelArt } from './world/PixelArt';
+import { useLocale, useMessages } from './Language';
 import { useUnits } from './Units';
 import { TEMPERATURE_UNIT, WIND_UNIT, type Units } from '@/lib/units';
 
@@ -52,11 +54,11 @@ type Props = {
   overlay?: WeatherOverlay;
 };
 
-const LABEL: Record<Metric, string> = { temperature: 'Temperature', precipitation: 'Precipitation', wind: 'Wind' };
-const unitLabel = (metric: Metric, units: Units) =>
-  metric === 'temperature' ? TEMPERATURE_UNIT[units] : metric === 'wind' ? WIND_UNIT[units] : '% chance';
-const fullValue = (metric: Metric, value: number | null, units: Units) =>
-  metric === 'temperature' ? formatTemperature(value, units) : metric === 'wind' ? formatWind(value, units) : formatPercent(value);
+const unitLabel = (metric: Metric, units: Units, t: Messages) =>
+  metric === 'temperature' ? TEMPERATURE_UNIT[units] : metric === 'wind' ? WIND_UNIT[units] : t.widget.chance;
+const fullValue = (metric: Metric, value: number | null, units: Units, locale: Locale) =>
+  metric === 'temperature' ? formatTemperature(value, units, locale)
+    : metric === 'wind' ? formatWind(value, units, locale) : formatPercent(value, locale);
 
 // Curve grid in chart units: one 12-unit column per hour, values between TOP and BOTTOM.
 const COL = 12;
@@ -77,13 +79,15 @@ function Curve({ hours, metric, timeZone, overlay }: {
   overlay?: WeatherOverlay;
 }) {
   const units = useUnits();
+  const locale = useLocale();
+  const t = useMessages();
   const values = metricValues(hours, metric);
   const limit = limitFor(metric, overlay?.limits);
   const domain = metricDomain(values, metric, limit);
   const rows = scaleRows(values, domain, TOP, BOTTOM);
   const limitRow = limit === null ? null : scaleRows([limit], domain, TOP, BOTTOM)[0] ?? null;
   const spans = windowSpans(hours, overlay?.windows ?? []);
-  const marks = threeHourMarks(hours, timeZone);
+  const marks = threeHourMarks(hours, timeZone, locale);
   const width = hours.length * COL;
   const columnCentre = (index: number) => (index + 0.5) / hours.length;
   return (
@@ -120,13 +124,13 @@ function Curve({ hours, metric, timeZone, overlay }: {
           if (row === null || row === undefined) return null;
           return (
             <span key={mark.index} className={`ww-value ${rank(mark)}`} style={at(columnCentre(mark.index), row / HEIGHT)}>
-              {compactValue(values[mark.index] ?? null, metric, units)}
+              {compactValue(values[mark.index] ?? null, metric, units, locale)}
             </span>
           );
         })}
         {limitRow === null ? null : (
           <span className="ww-limit-label" style={at(1, limitRow / HEIGHT)}>
-            Limit {compactValue(limit, metric, units)}{metric === 'wind' ? ` ${WIND_UNIT[units]}` : ''}
+            {t.widget.limit(compactValue(limit, metric, units, locale) + (metric === 'wind' ? ` ${WIND_UNIT[units]}` : ''))}
           </span>
         )}
       </div>
@@ -136,7 +140,7 @@ function Curve({ hours, metric, timeZone, overlay }: {
         ))}
       </div>
       {spans.length > 0 ? (
-        <p className="ww-legend"><span className="ww-key ww-key-window" /> Planned window</p>
+        <p className="ww-legend"><span className="ww-key ww-key-window" /> {t.widget.plannedWindow}</p>
       ) : null}
     </div>
   );
@@ -145,22 +149,24 @@ function Curve({ hours, metric, timeZone, overlay }: {
 /** The selected day's values for the chosen tab, for screen readers. */
 function CurveTable({ hours, metric, day, timeZone }: { hours: HourlyPoint[]; metric: Metric; day: DailySummary; timeZone: string }) {
   const units = useUnits();
+  const locale = useLocale();
+  const t = useMessages();
   const values = metricValues(hours, metric);
   return (
     <div className="sr-only">
       <table>
-        <caption>{LABEL[metric]} on {formatDay(day.date)}</caption>
+        <caption>{t.widget.tableCaption(t.widget.metric[metric], formatDay(day.date, locale))}</caption>
         <thead>
           <tr>
-            <th scope="col">Time</th>
-            <th scope="col">{LABEL[metric]}</th>
+            <th scope="col">{t.widget.time}</th>
+            <th scope="col">{t.widget.metric[metric]}</th>
           </tr>
         </thead>
         <tbody>
           {hours.map((hour, i) => (
             <tr key={hour.time}>
-              <th scope="row">{formatHour(hour.time, timeZone)}</th>
-              <td>{fullValue(metric, values[i] ?? null, units)}</td>
+              <th scope="row">{formatHour(hour.time, timeZone, locale)}</th>
+              <td>{fullValue(metric, values[i] ?? null, units, locale)}</td>
             </tr>
           ))}
         </tbody>
@@ -170,35 +176,39 @@ function CurveTable({ hours, metric, day, timeZone }: { hours: HourlyPoint[]; me
 }
 
 function Reading({ text, className }: { text: string; className: string }) {
-  return <span className={text === UNAVAILABLE ? `${className} ww-missing` : className}>{text}</span>;
+  const locale = useLocale();
+  return <span className={text === unavailable(locale) ? `${className} ww-missing` : className}>{text}</span>;
 }
 
 function DayHeader({ day, hours, today }: { day: DailySummary; hours: HourlyPoint[]; today: string }) {
   const units = useUnits();
+  const locale = useLocale();
+  const t = useMessages();
   const wind = maxValue(hours.map(hour => hour.windKmh));
   return (
     <div className="ww-head">
       <PixelArt grid={ICONS[iconForCode(day.weatherCode)]} className="ww-head-icon" />
       <div className="ww-head-temps">
-        <Reading text={formatTemperature(day.maxC, units)} className="ww-high" />
-        <span className="ww-low">Low <Reading text={formatTemperature(day.minC, units)} className="ww-low-value" /></span>
+        <Reading text={formatTemperature(day.maxC, units, locale)} className="ww-high" />
+        <span className="ww-low">{t.widget.low} <Reading text={formatTemperature(day.minC, units, locale)} className="ww-low-value" /></span>
       </div>
       <dl className="ww-stats">
-        <div><dt>Precipitation</dt><dd>{formatPercent(day.precipitationProbability)}</dd></div>
-        <div><dt>Wind</dt><dd>{wind === null ? formatWind(null) : `Up to ${formatWind(wind, units)}`}</dd></div>
+        <div><dt>{t.widget.metric.precipitation}</dt><dd>{formatPercent(day.precipitationProbability, locale)}</dd></div>
+        <div><dt>{t.widget.metric.wind}</dt><dd>{wind === null ? formatWind(null, units, locale) : t.widget.upTo(formatWind(wind, units, locale))}</dd></div>
       </dl>
       <div className="ww-when">
-        <p className="ww-weekday">{day.date === today ? 'Today' : weekdayOf(day.date, 'long')}</p>
-        <p>{formatDay(day.date)}</p>
-        <p className="ww-conditions">{describeWeatherCode(day.weatherCode)}</p>
+        <p className="ww-weekday">{day.date === today ? t.common.today : weekdayOf(day.date, 'long', locale)}</p>
+        <p>{formatDay(day.date, locale)}</p>
+        <p className="ww-conditions">{describeWeatherCode(day.weatherCode, locale)}</p>
       </div>
     </div>
   );
 }
 
-function dayLabel(day: DailySummary, today: string, units: Units): string {
-  const name = day.date === today ? `Today, ${formatDay(day.date)}` : formatDay(day.date);
-  return `${name}: ${describeWeatherCode(day.weatherCode)}, high ${formatTemperature(day.maxC, units)}, low ${formatTemperature(day.minC, units)}`;
+function dayLabel(day: DailySummary, today: string, units: Units, locale: Locale, t: Messages): string {
+  return t.widget.dayLabel(t.widget.dayName(day.date === today, formatDay(day.date, locale)),
+    describeWeatherCode(day.weatherCode, locale), formatTemperature(day.maxC, units, locale),
+    formatTemperature(day.minC, units, locale));
 }
 
 /**
@@ -211,6 +221,8 @@ export const WeatherWidget = memo(function WeatherWidget({ forecast, timeZone, n
   const [ownDate, setOwnDate] = useState<string | null>(null);
   const [metric, setMetric] = useState<Metric>('temperature');
   const units = useUnits();
+  const locale = useLocale();
+  const t = useMessages();
   const tabs = useRef<Partial<Record<Metric, HTMLButtonElement | null>>>({});
   const id = useId();
   if (!forecast) return null;
@@ -241,10 +253,10 @@ export const WeatherWidget = memo(function WeatherWidget({ forecast, timeZone, n
 
   return (
     <section className="card fc ww forecast" aria-labelledby={`${id}-heading`}>
-      <h2 id={`${id}-heading`}>Forecast</h2>
+      <h2 id={`${id}-heading`}>{t.widget.heading}</h2>
       {day ? <DayHeader day={day} hours={hours} today={today} /> : null}
 
-      <div className="ww-tabs" role="tablist" aria-label="Chart">
+      <div className="ww-tabs" role="tablist" aria-label={t.widget.chart}>
         {METRICS.map(m => (
           <button
             key={m}
@@ -259,14 +271,14 @@ export const WeatherWidget = memo(function WeatherWidget({ forecast, timeZone, n
             onClick={() => setMetric(m)}
             onKeyDown={onTabKey}
           >
-            {LABEL[m]}
+            {t.widget.metric[m]}
           </button>
         ))}
       </div>
       {/* Named "Hourly chart" rather than by its tab, so "Temperature" keeps naming only the current reading (WX-02). */}
-      <div className="ww-panel" role="tabpanel" id={panelId} aria-label="Hourly chart" tabIndex={0}>
+      <div className="ww-panel" role="tabpanel" id={panelId} aria-label={t.widget.hourlyChart} tabIndex={0}>
         {day ? (
-          <p className="ww-caption" aria-hidden="true">{LABEL[metric]} ({unitLabel(metric, units)}) by hour, {formatDay(day.date)}</p>
+          <p className="ww-caption" aria-hidden="true">{t.widget.caption(t.widget.metric[metric], unitLabel(metric, units, t), formatDay(day.date, locale))}</p>
         ) : null}
         {day && hours.length > 0 ? (
           <>
@@ -274,12 +286,12 @@ export const WeatherWidget = memo(function WeatherWidget({ forecast, timeZone, n
             <CurveTable hours={hours} metric={metric} day={day} timeZone={timeZone} />
           </>
         ) : (
-          <p className="ww-empty">No hourly forecast is available for this day.</p>
+          <p className="ww-empty">{t.widget.noHourly}</p>
         )}
       </div>
 
       {days.length > 0 ? (
-        <ol className="ww-days" aria-label="Forecast days">
+        <ol className="ww-days" aria-label={t.widget.days}>
           {days.map(d => {
             const badge = overlay?.dayBadges?.[d.date];
             return (
@@ -288,14 +300,14 @@ export const WeatherWidget = memo(function WeatherWidget({ forecast, timeZone, n
                   type="button"
                   className="ww-day"
                   aria-pressed={d.date === day?.date}
-                  aria-label={dayLabel(d, today, units)}
+                  aria-label={dayLabel(d, today, units, locale, t)}
                   onClick={() => select(d.date)}
                 >
-                  <span className="ww-day-name">{d.date === today ? 'Today' : weekdayOf(d.date, 'short')}</span>
+                  <span className="ww-day-name">{d.date === today ? t.common.today : weekdayOf(d.date, 'short', locale)}</span>
                   <PixelArt grid={ICONS[iconForCode(d.weatherCode)]} className="ww-day-icon" />
                   <span className="ww-day-temps">
-                    <strong>{compactValue(d.maxC, 'temperature', units) || '–'}</strong>
-                    <span>{compactValue(d.minC, 'temperature', units) || '–'}</span>
+                    <strong>{compactValue(d.maxC, 'temperature', units, locale) || '–'}</strong>
+                    <span>{compactValue(d.minC, 'temperature', units, locale) || '–'}</span>
                   </span>
                 </button>
                 {badge === undefined || badge === null || badge === false ? null : <div className="ww-badge">{badge}</div>}
@@ -304,7 +316,7 @@ export const WeatherWidget = memo(function WeatherWidget({ forecast, timeZone, n
           })}
         </ol>
       ) : (
-        <p className="ww-empty">No daily forecast is available.</p>
+        <p className="ww-empty">{t.widget.noDaily}</p>
       )}
 
       <HourlyTable hours={upcomingHours(forecast.hourly, now)} timeZone={timeZone} />

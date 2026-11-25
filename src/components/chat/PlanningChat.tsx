@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { cityDisplayName, type City } from '@/lib/cities';
-import { messages as t } from '@/lib/i18n/messages';
+import { cityDisplayName, cityLabel, type City } from '@/lib/cities';
 import {
   activityName, answersToValues, chatView, clearAnswer, daysForWhen, isComplete, NO_ANSWERS, resultDate, withFlexibleToday,
   type Answers, type Choice, type TurnKey,
 } from '@/lib/planner/conversation';
 import { boardId, conversationIdOf, planFromChat, type BoardPlan } from '@/lib/planner/board';
-import { ACTIVITY_LABEL_MAX, parseActivityLabel } from '@/lib/planner/activity-label';
+import { ACTIVITY_LABEL_MAX, ACTIVITY_LABEL_MIN, parseActivityLabel, type ActivityLabelError } from '@/lib/planner/activity-label';
 import { planDateBounds } from '@/lib/planner/form';
 import { usePlanner } from '@/lib/planner/usePlanner';
 import type { DailySummary } from '@/lib/weather/types';
@@ -20,6 +19,7 @@ import { VISITOR } from '@/lib/world/avatar';
 import { DatePicker } from './DatePicker';
 import { PlanCard } from './PlanCard';
 import { useUnits } from '../Units';
+import { useLocale, useMessages } from '../Language';
 
 let conversations = 0;
 /** A new conversation id: one per plan, kept while its answers are edited. */
@@ -50,7 +50,9 @@ type Props = {
 const todayIn = (city: City) => planDateBounds(Date.now(), city.timeZone).min;
 
 export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, reopen }: Props) {
-  const cityName = cityDisplayName(city);
+  const locale = useLocale();
+  const t = useMessages();
+  const cityName = cityDisplayName(city, locale);
   const planner = usePlanner(city);
   const [answers, setAnswers] = useState<Answers>(NO_ANSWERS);
   const [typing, setTyping] = useState<'activity' | 'city' | 'duration' | null>(null);
@@ -74,11 +76,11 @@ export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, r
 
   const cityChoices = [city.id, ...FEATURED.filter(id => id !== city.id)].slice(0, 3).flatMap(id => {
     const c = cities.find(x => x.id === id);
-    return c ? [{ id: c.id, label: c.label }] : [];
+    return c ? [{ id: c.id, label: cityLabel(c, locale) }] : [];
   });
 
   const view = chatView({
-    answers, cityName, cityChoices, bounds: planner.bounds, days, errors: planner.errors, request: planner.request, units,
+    answers, cityName, cityChoices, bounds: planner.bounds, days, errors: planner.errors, request: planner.request, units, locale,
   });
 
   // The board follows the conversation: draft, day, then the planner's outcome.
@@ -195,10 +197,10 @@ export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, r
                   </p>
                   {view.step === 'checking' ? <span className="typing" aria-hidden="true"><i /><i /><i /></span> : null}
                   {match ? (
-                    <PlanCard data={match} name={activityName(answers)} timeZone={city.timeZone} bounds={planner.bounds} day={days?.find(d => d.date === resultDate(match, city.timeZone))} />
+                    <PlanCard data={match} name={activityName(answers, locale)} timeZone={city.timeZone} bounds={planner.bounds} day={days?.find(d => d.date === resultDate(match, city.timeZone))} />
                   ) : null}
                   <PlanResult
-                    activityName={activityName(answers)}
+                    activityName={activityName(answers, locale)}
                     state={result ? planner.request : null}
                     city={city}
                     cityName={cityName}
@@ -277,8 +279,9 @@ function StructuredInput({ kind, id, initial, onDone, onCancel }: {
   onDone: (value: string) => void;
   onCancel: () => void;
 }) {
+  const t = useMessages();
   const [value, setValue] = useState(initial || (kind === 'duration' ? '1' : ''));
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ActivityLabelError | null>(null);
   const inputId = `${id}-${kind}`;
   const errorId = `${inputId}-error`;
   const hours = Number(value);
@@ -295,7 +298,7 @@ function StructuredInput({ kind, id, initial, onDone, onCancel }: {
         }
         const parsed = parseActivityLabel(value);
         if (parsed.ok) onDone(parsed.label);
-        else setError(parsed.message);
+        else setError(parsed.reason);
       }}
     >
       {kind === 'activity' ? (
@@ -315,7 +318,12 @@ function StructuredInput({ kind, id, initial, onDone, onCancel }: {
             onChange={event => { setValue(event.target.value); setError(null); }}
           />
           <p id={`${inputId}-hint`} className="composer-hint">{t.activityInput.hint}</p>
-          {error ? <p id={errorId} className="composer-error" role="alert">{error}</p> : null}
+          {error ? (
+            <p id={errorId} className="composer-error" role="alert">
+              {error === 'short' ? t.activityInput.errors.short(ACTIVITY_LABEL_MIN)
+                : error === 'long' ? t.activityInput.errors.long(ACTIVITY_LABEL_MAX) : t.activityInput.errors.characters}
+            </p>
+          ) : null}
         </>
       ) : (
         <>
