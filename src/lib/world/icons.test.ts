@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { describeWeatherCode, UNAVAILABLE } from '@/lib/format';
-import { DROP, ICONS, ICON_SIZE, WIND, iconForCode, type IconKind } from './icons';
+import { ICONS, ICON_SIZE, iconForCode, type IconKind } from './icons';
 import { gridMarkup, gridRuns, gridWidth } from './pixels';
 
 describe('iconForCode', () => {
@@ -48,10 +48,5 @@ describe('ICONS', () => {
   it('draws a distinct picture for every icon group', () => {
     const pictures = new Set(Object.values(ICONS).map(gridMarkup));
     expect(pictures.size).toBe(Object.keys(ICONS).length);
-  });
-
-  it('has valid glyphs for precipitation and wind', () => {
-    expect(() => gridMarkup(DROP)).not.toThrow();
-    expect(() => gridMarkup(WIND)).not.toThrow();
   });
 });

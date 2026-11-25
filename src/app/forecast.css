@@ -1,14 +1,15 @@
 /*
- * Pixel hourly and 5-day forecasts (WEA-19). The visual strips are hidden from assistive
- * technology; each card keeps a visually hidden data table (`.sr-only`, chat.css) for
- * screen readers and tests. `.fc` is positioned so that table never causes overflow.
- * Chart and icon colours keep at least 3:1 against the glass cards in both colour schemes.
+ * Weather widget (WEA-19): day summary, pixel curve with tabs and day cards. The curve is
+ * hidden from assistive technology; tables in `.sr-only` (chat.css) carry the same data.
+ * `.fc` is positioned so those tables never cause overflow. Chart and icon colours keep at
+ * least 3:1 against the glass cards in both colour schemes. No animation is added here.
  */
 
 .fc {
-  --fc-col: 6rem;
   --fc-temp: #c2410c;
   --fc-precip: #2563eb;
+  --fc-wind: #0f766e;
+  --fc-plan: #1a7f37;
   --fc-focus: var(--scene-accent, var(--accent));
   --icon-line: #2f3a52;
   --icon-cloud: #ffffff;
@@ -28,7 +29,6 @@
   --icon-bolt: #a86f00;
   --icon-fog: #6b7686;
   --icon-unknown: var(--muted);
-  --icon-wind: var(--muted);
   position: relative;
   min-width: 0;
 }
@@ -36,6 +36,8 @@
   .fc {
     --fc-temp: #ff9a5c;
     --fc-precip: #6cb0ff;
+    --fc-wind: #5eead4;
+    --fc-plan: #3fb950;
     --icon-line: #0d1220;
     --icon-cloud: #e8eef6;
     --icon-cloud-shade: #aebcd0;
@@ -56,8 +58,6 @@
   }
 }
 
-.fc h2 { margin-bottom: 0.5rem; }
-
 .px-icon-line { fill: var(--icon-line); }
 .px-icon-cloud { fill: var(--icon-cloud); }
 .px-icon-cloud-shade { fill: var(--icon-cloud-shade); }
@@ -76,138 +76,144 @@
 .px-icon-bolt { fill: var(--icon-bolt); }
 .px-icon-fog { fill: var(--icon-fog); }
 .px-icon-unknown { fill: var(--icon-unknown); }
-.px-icon-wind { fill: var(--icon-wind); }
 
-/* Icons are drawn on a 16-pixel grid and only scaled by whole numbers. */
-.fc-icon { display: block; width: 2rem; height: 2rem; }
-.fc-icon-lg { width: 3rem; height: 3rem; }
-.fc-glyph { flex: none; display: block; width: auto; }
-.fc-glyph-drop { height: 0.75rem; }
-.fc-glyph-wind { height: 0.875rem; }
+/* ---------- Widget ---------- */
+.ww { display: grid; gap: 0.875rem; }
+.ww h2 { margin: 0; }
+.ww p { margin: 0; }
+.ww-empty { color: var(--muted); }
+.ww-missing { color: var(--muted); font-size: 0.875rem; font-weight: 500; }
 
-.fc-legend {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.375rem;
-  margin: 0 0 0.5rem;
+/* Selected day: icon, high and low, precipitation and wind; the day on the right. */
+.ww-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.25rem; }
+.ww-head-icon { flex: none; display: block; width: 4rem; height: 4rem; }
+.ww-head-temps { display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
+.ww-high { font-size: 2.5rem; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+.ww-low { color: var(--muted); font-size: 0.875rem; }
+.ww-high.ww-missing { font-size: 1.25rem; }
+.ww-stats { display: grid; gap: 0.125rem; grid-template-columns: none; font-size: 0.875rem; }
+.ww-stats div { display: flex; gap: 0.375rem; }
+.ww-stats dd { font-variant-numeric: tabular-nums; }
+.ww-when { margin-left: auto; text-align: right; font-size: 0.875rem; }
+.ww-weekday { font-size: 1.125rem; font-weight: 700; }
+.ww-conditions { color: var(--muted); }
+
+/* Tabs: underlined, flat, not the chunky pixel buttons. */
+.ww-tabs { display: flex; gap: 0.25rem; border-bottom: 2px solid var(--border); overflow-x: auto; }
+.world-content .ww-tab,
+.ww-tab {
+  padding: 0.375rem 0.75rem;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  margin-bottom: -2px;
+  background: transparent;
   color: var(--muted);
-  font-size: 0.8125rem;
+  font-weight: 600;
+  box-shadow: none;
+  transform: none;
+  white-space: nowrap;
 }
-.fc-key { display: inline-block; width: 0.75rem; height: 0.75rem; }
-.fc-key-temp { background: var(--fc-temp); }
-.fc-key-precip { margin-left: 0.5rem; background: var(--fc-precip); }
+.world-content .ww-tab:active { transform: none; box-shadow: none; }
+.world-content .ww-tab[aria-selected="true"],
+.ww-tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--fc-focus); }
+.ww-panel { border-radius: 0.25rem; }
+.ww-panel:focus-visible { outline: 3px solid var(--fc-focus); outline-offset: 2px; }
+.ww-caption { color: var(--muted); font-size: 0.8125rem; }
 
-/* Horizontal strips: keyboard focusable, scroll inside the card, never the page. */
-.fc-scroll {
-  max-width: 100%;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x proximity;
-  padding: 0.25rem 0.25rem 0.5rem;
+/* Curve: stretched to the card width; labels are HTML placed over their hour column. */
+.ww-curve { --ww-color: var(--fc-temp); }
+.ww-curve[data-metric="precipitation"] { --ww-color: var(--fc-precip); }
+.ww-curve[data-metric="wind"] { --ww-color: var(--fc-wind); }
+.ww-plot { position: relative; height: 9rem; margin-top: 0.25rem; }
+.ww-svg { display: block; width: 100%; height: 100%; }
+.ww-area { fill: color-mix(in srgb, var(--ww-color) 28%, transparent); }
+.ww-line { fill: var(--ww-color); }
+.ww-baseline { fill: var(--border); }
+.ww-window { fill: color-mix(in srgb, var(--fc-plan) 20%, transparent); }
+.ww-window-active { fill: color-mix(in srgb, var(--fc-plan) 32%, transparent); }
+.ww-window-outline { fill: none; stroke: var(--fc-plan); stroke-width: 3; }
+.ww-limit { stroke: var(--fg); stroke-width: 2; stroke-dasharray: 6 4; }
+.ww-value {
+  position: absolute;
+  left: calc(var(--x) * 100%);
+  top: calc(var(--y) * 100%);
+  transform: translate(-50%, calc(-100% - 0.25rem));
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ww-limit-label {
+  position: absolute;
+  right: 0;
+  top: calc(var(--y) * 100%);
+  transform: translateY(calc(-100% - 2px));
+  padding: 0 0.25rem;
+  border-radius: 0.125rem;
+  background: var(--glass);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.ww-hours { position: relative; height: 1.25rem; margin-top: 0.25rem; color: var(--muted); font-size: 0.75rem; }
+.ww-hours span {
+  position: absolute;
+  left: calc(var(--x) * 100%);
+  transform: translateX(-50%);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ww-legend { display: flex; align-items: center; gap: 0.375rem; margin-top: 0.25rem; color: var(--muted); font-size: 0.75rem; }
+.ww-key { display: inline-block; width: 0.75rem; height: 0.75rem; }
+.ww-key-window { background: color-mix(in srgb, var(--fc-plan) 32%, transparent); outline: 2px solid var(--fc-plan); outline-offset: -2px; }
+
+/* Day cards: scroll inside the card on narrow screens; the buttons are the focus stops. */
+.ww-days {
+  display: flex;
+  gap: 0.5rem;
   margin: 0 -0.25rem;
-  border-radius: 0.25rem;
+  padding: 0.25rem 0.25rem 0.5rem;
+  list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
   scrollbar-width: thin;
   scrollbar-color: var(--muted) transparent;
 }
-.fc-scroll:focus-visible { outline: 3px solid var(--fc-focus); outline-offset: 0; }
-@media (prefers-reduced-motion: no-preference) {
-  .fc-scroll { scroll-behavior: smooth; }
-}
-
-.fc-tiles, .fc-days { list-style: none; margin: 0; padding: 0; }
-
-/* Hourly: chart columns are exactly one tile wide, so each bar sits over its hour. */
-.fc-track { width: calc(var(--cols) * var(--fc-col)); }
-.fc-chart { display: block; width: 100%; height: auto; }
-.fc-baseline { fill: var(--border); }
-.fc-precip { fill: var(--fc-precip); }
-.fc-temp { fill: var(--fc-temp); }
-
-.fc-tiles { display: grid; grid-template-columns: repeat(var(--cols), var(--fc-col)); }
-.fc-tile {
+.ww-day-item { flex: 1 0 4.75rem; display: flex; flex-direction: column; gap: 0.25rem; scroll-snap-align: start; }
+.world-content .ww-day,
+.ww-day {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.25rem;
+  width: 100%;
   padding: 0.5rem 0.25rem;
-  border-left: 2px dashed var(--border);
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  scroll-snap-align: start;
-}
-.fc-tile:first-child {
-  border-left-color: transparent;
-  background: color-mix(in srgb, var(--fc-focus) 10%, transparent);
-  border-radius: 0.25rem;
-}
-.fc-time { font-size: 0.8125rem; font-weight: 600; white-space: nowrap; }
-.fc-temp-value { font-size: 1.125rem; font-weight: 700; white-space: nowrap; }
-.fc-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: var(--muted);
-  font-size: 0.75rem;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-/* 5-day: one pixel card per day. */
-.fc-days {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(8rem, 1fr);
-  gap: 0.75rem;
-  padding-right: 4px;
-}
-.fc-day {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.75rem 0.5rem;
   border: 2px solid var(--border);
   border-radius: 0.25rem;
   background: color-mix(in srgb, var(--card) 55%, transparent);
+  color: var(--fg);
+  font-weight: 400;
   box-shadow: 3px 3px 0 var(--pixel-shadow);
-  text-align: center;
-  scroll-snap-align: start;
 }
-.fc-day-today { border-color: var(--fc-focus); }
-.fc-day-name {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  min-height: 2.75rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1.25;
+.world-content .ww-day[aria-pressed="true"],
+.ww-day[aria-pressed="true"] {
+  border-color: var(--fc-focus);
+  background: color-mix(in srgb, var(--fc-focus) 14%, var(--card));
 }
-.fc-today {
-  color: var(--fc-focus);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-.fc-condition { min-height: 2.5em; color: var(--muted); font-size: 0.8125rem; line-height: 1.25; }
-.fc-range { display: block; width: 6rem; height: 0.5rem; }
-.fc-cell-on { fill: var(--fc-temp); }
-.fc-cell-off { fill: var(--border); }
-.fc-range-labels {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.25rem;
-  width: 100%;
-  max-width: 7rem;
-  font-size: 0.8125rem;
-  font-variant-numeric: tabular-nums;
-}
-.fc-range-labels > span { display: flex; flex-direction: column; }
-.fc-range-labels > span:last-child { text-align: right; }
-.fc-label { color: var(--muted); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.world-content .ww-day:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--pixel-shadow); }
+.ww-day-name { font-size: 0.875rem; font-weight: 700; }
+.ww-day-icon { display: block; width: 2rem; height: 2rem; }
+.ww-day-temps { display: flex; gap: 0.375rem; font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+.ww-day-temps span { color: var(--muted); }
+.ww-badge { font-size: 0.75rem; text-align: center; }
 
-/* Missing readings keep the word "Unavailable" but shrink to fit tiles and cards. */
-.fc-missing { color: var(--muted); font-size: 0.75rem; font-weight: 500; }
+/* Phones: tighter tabs, and labels every six hours so neighbours never touch. */
+@media (max-width: 36rem) {
+  .world-content .ww-tab, .ww-tab { padding: 0.375rem 0.5rem; }
+  .ww-value.ww-minor, .ww-hours .ww-minor { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .world-content .ww-day, .world-content .ww-tab { transition: none; }
+  .world-content .ww-day:active { transform: none; }
+}

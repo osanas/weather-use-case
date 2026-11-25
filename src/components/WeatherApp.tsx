@@ -9,8 +9,9 @@ import { useForecast } from '@/lib/weather/useForecast';
 import { PlanBoard } from './board/PlanBoard';
 import { PlanningChat } from './chat/PlanningChat';
 import { CitySelector } from './CitySelector';
-import { CurrentPanel, ForecastPanels } from './ForecastView';
+import { CurrentPanel } from './ForecastView';
 import { LocationNotice } from './LocationNotice';
+import { WeatherWidget } from './WeatherWidget';
 
 type Board = { plans: BoardPlan[]; activeId: string | null };
 type BoardAction =
@@ -94,7 +95,11 @@ export function WeatherApp({
         activeId={board.activeId}
         onOpen={onOpen}
       />
-      <ForecastPanels state={forecast.state} now={forecast.now} />
+      <WeatherWidget
+        forecast={forecast.state.status === 'ready' ? forecast.state.data : null}
+        timeZone={city.timeZone}
+        now={forecast.now}
+      />
     </>
   );
 }

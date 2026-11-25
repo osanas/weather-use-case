@@ -210,24 +210,3 @@ export const ICONS: Readonly<Record<IconKind, Grid>> = {
   hail: compose([STORM_CLOUD, 0, 2], [BOLT, 0, 10], [HAIL, 0, 10]),
   unknown: QUESTION,
 };
-
-/** Small glyph for precipitation chance. */
-export const DROP: Grid = parseArt([
-  '..d..',
-  '.ddd.',
-  '.ddd.',
-  'ddddd',
-  'ddddd',
-  '.ddd.',
-], { d: 'icon-drop' });
-
-/** Small glyph for wind speed. */
-export const WIND: Grid = parseArt([
-  '......ww.',
-  '........w',
-  'wwwwwwww.',
-  '.........',
-  'wwwwwww..',
-  '.......w.',
-  '.....ww..',
-], { w: 'icon-wind' });

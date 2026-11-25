@@ -1,40 +1,45 @@
 /**
- * Pure scaling for the pixel forecast charts. Everything is in whole chart units, so the
- * SVGs stay on a crisp pixel grid. Missing readings stay `null` and are never drawn.
+ * Pure scaling for the pixel forecast curve. Everything is in whole chart units, so the SVG
+ * stays on a pixel grid. Missing readings stay `null` and are never drawn.
  */
 
 export type Rect = { x: number; y: number; w: number; h: number };
+export type Domain = { min: number; max: number };
 
-const finite = (value: number | null): value is number => value !== null && Number.isFinite(value);
+export const finite = (value: number | null | undefined): value is number =>
+  value !== null && value !== undefined && Number.isFinite(value);
 
-/**
- * Row of each temperature between `top` (warmest) and `bottom` (coldest), rounded to whole
- * units. A flat series sits on the middle row. Missing or non-finite values give `null`.
- */
-export function temperatureRows(values: readonly (number | null)[], top: number, bottom: number): (number | null)[] {
+/** Lowest and highest known value, or `null` when no value is known. */
+export function dataDomain(values: readonly (number | null)[]): Domain | null {
   const known = values.filter(finite);
-  if (known.length === 0) return values.map(() => null);
-  const min = Math.min(...known);
-  const max = Math.max(...known);
-  const middle = Math.round((top + bottom) / 2);
-  return values.map(value => {
-    if (!finite(value)) return null;
-    if (max === min) return middle;
-    return Math.round(bottom - ((value - min) / (max - min)) * (bottom - top));
-  });
+  if (known.length === 0) return null;
+  return { min: Math.min(...known), max: Math.max(...known) };
 }
 
 /**
- * Bar height for each precipitation probability (0–100 %, clamped), out of `maxHeight`
- * units. Any chance above zero shows at least one unit. Missing values give `null`.
+ * Row of each value between `top` (domain max) and `bottom` (domain min), rounded to whole
+ * units and clamped to the band. A domain without extent puts every value on the middle row.
+ * Missing or non-finite values, or a missing domain, give `null`.
  */
-export function precipHeights(values: readonly (number | null)[], maxHeight: number): (number | null)[] {
+export function scaleRows(
+  values: readonly (number | null)[],
+  domain: Domain | null,
+  top: number,
+  bottom: number,
+): (number | null)[] {
+  const middle = Math.round((top + bottom) / 2);
   return values.map(value => {
-    if (!finite(value)) return null;
-    const percent = Math.min(100, Math.max(0, value));
-    const height = Math.round((percent / 100) * maxHeight);
-    return percent > 0 ? Math.max(1, height) : 0;
+    if (!finite(value) || !domain) return null;
+    const extent = domain.max - domain.min;
+    if (extent <= 0) return middle;
+    const row = Math.round(bottom - ((value - domain.min) / extent) * (bottom - top));
+    return Math.min(bottom, Math.max(top, row));
   });
+}
+
+/** Rows of a series scaled to its own range: the warmest reading on `top`, the coldest on `bottom`. */
+export function temperatureRows(values: readonly (number | null)[], top: number, bottom: number): (number | null)[] {
+  return scaleRows(values, dataDomain(values), top, bottom);
 }
 
 /**
@@ -58,32 +63,7 @@ export function stepSegments(rows: readonly (number | null)[], colWidth: number,
   return rects;
 }
 
-export type Domain = { min: number; max: number };
-
-/** Lowest minimum and highest maximum across days, or `null` when no reading is known. */
-export function temperatureDomain(days: readonly { minC: number | null; maxC: number | null }[]): Domain | null {
-  const known = days.flatMap(day => [day.minC, day.maxC]).filter(finite);
-  if (known.length === 0) return null;
-  return { min: Math.min(...known), max: Math.max(...known) };
-}
-
-/**
- * Filled part of a day's min–max bar on a track of `units`, positioned within the shared
- * domain. Inverted readings are swapped; the span is at least one unit wide. `null` when
- * either reading or the domain is missing.
- */
-export function rangeSpan(
-  min: number | null,
-  max: number | null,
-  domain: Domain | null,
-  units: number,
-): { start: number; width: number } | null {
-  if (!finite(min) || !finite(max) || !domain) return null;
-  const low = Math.min(min, max);
-  const high = Math.max(min, max);
-  const extent = domain.max - domain.min;
-  if (extent <= 0) return { start: 0, width: units };
-  const scale = (value: number) => Math.min(units, Math.max(0, Math.round(((value - domain.min) / extent) * units)));
-  const start = Math.min(scale(low), units - 1);
-  return { start, width: Math.max(1, scale(high) - start) };
+/** Filled area under a stepped line: one column from its row down to `bottom`. Gaps stay empty. */
+export function areaRects(rows: readonly (number | null)[], colWidth: number, bottom: number): Rect[] {
+  return rows.flatMap((row, i) => row === null || row >= bottom ? [] : [{ x: i * colWidth, y: row, w: colWidth, h: bottom - row }]);
 }
