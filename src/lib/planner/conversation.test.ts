@@ -26,45 +26,56 @@ const done = (data: PlanResponse): ChatRequest => ({ status: 'done', request, da
 const TIME_OR_FIGURE = /\d+\s*%|km\/h|\d{1,2}:\d{2}|°/;
 
 describe('chatView', () => {
-  it('asks the questions in order and records each answer as a turn', () => {
-    expect(chatView(state())).toMatchObject({ step: 'activity', mood: 'hello', announce: true, input: 'activity', turns: [] });
-    expect(chatView(state()).choices.map(c => c.label)).toEqual(['Hiking', 'Cycling', 'Walking']);
-
-    const city = chatView(state({ activity: 'hiking' }));
-    expect(city.step).toBe('city');
-    expect(city.prompt).toBe('Hiking it is! Where are you heading?');
-    expect(city.choices.map(c => c.label)).toEqual(['Laval', 'Montréal', 'Other city']);
-    expect(city.choices.at(-1)).toMatchObject({ opens: 'city' });
-    expect(city.turns).toEqual([{ key: 'activity', question: 'Hi, I’m Pico! What would you like to do?', answer: 'Hiking' }]);
-
-    const when = chatView(state({ activity: 'hiking', city: true }));
-    expect(when).toMatchObject({ step: 'when', input: 'date' });
+  it('asks when first, then the activity, the city and the duration, recording each answer as a turn', () => {
+    const when = chatView(state());
+    expect(when).toMatchObject({ step: 'when', mood: 'hello', announce: true, input: 'date', turns: [] });
+    expect(when.prompt).toBe('When do you want to go outside?');
     expect(when.choices.map(c => c.label)).toEqual(['Today', 'Tomorrow', 'Day after tomorrow', 'This weekend', 'Next week', 'I’m flexible']);
     expect(when.choices[1]!.answer).toEqual({ when: 'tomorrow', date: '2027-06-15' });
 
-    const day = chatView(state({ activity: 'hiking', city: true, when: 'weekend' }));
+    const day = chatView(state({ when: 'weekend' }));
     expect(day.step).toBe('day');
     expect(day.choices.map(c => [c.label, c.detail])).toEqual([
       ['Sat, Jun 19', 'Clear sky · 22 °C · 10% rain'], ['Sun, Jun 20', undefined],
     ]);
 
+    const activity = chatView(state({ when: 'weekend', date: '2027-06-19' }));
+    expect(activity).toMatchObject({ step: 'activity', input: 'activity' });
+    expect(activity.choices.map(c => c.label)).toEqual(['Hiking', 'Cycling', 'Walking']);
+    expect(activity.turns.map(t => [t.key, t.answer])).toEqual([['when', 'This weekend'], ['day', 'Sat, Jun 19']]);
+
+    const city = chatView(state({ when: 'weekend', date: '2027-06-19', activity: 'hiking' }));
+    expect(city.step).toBe('city');
+    expect(city.prompt).toBe('Hiking it is! Where are you heading?');
+    expect(city.choices.map(c => c.label)).toEqual(['Laval', 'Montréal', 'Other city']);
+    expect(city.choices.at(-1)).toMatchObject({ opens: 'city' });
+    expect(city.turns.at(-1)).toEqual({ key: 'activity', question: 'What would you like to do?', answer: 'Hiking' });
+
     const duration = chatView(state({ activity: 'hiking', city: true, when: 'weekend', date: '2027-06-19' }));
     expect(duration.step).toBe('duration');
     expect(duration.choices.map(c => c.label)).toEqual(['1 hour', '2 hours', '3 hours', '4 hours']);
     expect(duration.turns.map(t => [t.key, t.answer])).toEqual([
-      ['activity', 'Hiking'], ['city', 'Laval, Québec'], ['when', 'This weekend'], ['day', 'Sat, Jun 19'],
+      ['when', 'This weekend'], ['day', 'Sat, Jun 19'], ['activity', 'Hiking'], ['city', 'Laval, Québec'],
     ]);
   });
 
   it('skips the day question for one-day choices and shows picked dates as days', () => {
+    expect(chatView(state({ when: 'pick', date: '2027-06-17' })).step).toBe('activity');
     const view = chatView(state({ activity: 'walking', city: true, when: 'pick', date: '2027-06-17' }));
     expect(view.step).toBe('duration');
-    expect(view.turns.at(-1)).toMatchObject({ key: 'when', answer: 'Thu, Jun 17' });
-    expect(chatView(state({ activity: 'walking', city: true, when: 'today', date: '2027-06-14' })).turns.at(-1)!.answer).toBe('Today');
+    expect(view.turns.find(t => t.key === 'when')).toMatchObject({ answer: 'Thu, Jun 17' });
+    expect(view.turns.some(t => t.key === 'day')).toBe(false);
+    expect(chatView(state({ when: 'today', date: '2027-06-14' })).turns[0]!.answer).toBe('Today');
+  });
+
+  it('hides the later answers while an earlier one is edited, and keeps them', () => {
+    const editing = chatView(state(clearAnswer(full, 'when')));
+    expect(editing).toMatchObject({ step: 'when', turns: [] });
+    expect(clearAnswer(full, 'when')).toMatchObject({ activity: 'hiking', city: true, duration: '2' });
   });
 
   it('offers no dates before the client clock is known', () => {
-    expect(chatView(state({ activity: 'hiking', city: true }, { bounds: null })).choices).toEqual([]);
+    expect(chatView(state({}, { bounds: null })).choices).toEqual([]);
   });
 
   it('offers to check again once everything is answered but nothing was sent for this city', () => {
@@ -96,15 +107,19 @@ describe('chatView', () => {
     const view = chatView(state(full, { errors: { date: 'Choose a date from Mon, Jun 14 to Sun, Jun 20.' } }));
     expect(view).toMatchObject({ step: 'fix', mood: 'unsure', announce: false, input: 'date' });
     expect(view.prompt).toBe('One thing to fix first: the date. Choose a date from Mon, Jun 14 to Sun, Jun 20.');
-    expect(view.turns.map(t => t.key)).toEqual(['activity', 'city']);
+    // The date is asked first, so no earlier turn is kept.
+    expect(view.turns).toEqual([]);
     expect(view.choices[0]!.label).toBe('Today');
+    const activity = chatView(state(full, { errors: { activity: 'Choose an activity.' } }));
+    expect(activity).toMatchObject({ step: 'fix', input: 'activity' });
+    expect(activity.turns.map(t => t.key)).toEqual(['when', 'day']);
     expect(chatView(state(full, { errors: { form: 'Bad request.' } })).step).toBe('fix');
   });
 
   it('never puts a time or a weather figure in a question', () => {
     const steps = [
-      state(), state({ activity: 'hiking' }), state({ activity: 'hiking', city: true }),
-      state({ activity: 'hiking', city: true, when: 'next-week' }),
+      state(), state({ when: 'next-week' }), state({ when: 'weekend', date: '2027-06-19' }),
+      state({ when: 'weekend', date: '2027-06-19', activity: 'hiking' }),
       state({ activity: 'hiking', city: true, when: 'weekend', date: '2027-06-19' }), state(full),
     ];
     for (const s of steps) {
@@ -126,7 +141,7 @@ describe('multi-day choices', () => {
 
   it('offers the last visible days when next week is out of reach', () => {
     expect(datesForWhen('next-week', bounds)).toEqual(['2027-06-18', '2027-06-19', '2027-06-20']);
-    const view = chatView(state({ activity: 'hiking', city: true, when: 'next-week' }));
+    const view = chatView(state({ when: 'next-week' }));
     expect(view.prompt).toBe('I can see the forecast up to Sun, Jun 20. Which day suits you?');
   });
 

@@ -20,7 +20,6 @@ export default async function HomePage() {
       <main>
         <header className="site-header">
           <h1 className="wordmark">Weather Window</h1>
-          <p className="tagline">Current conditions, hourly and five-day forecasts for Canadian cities, and the best time for an outdoor activity.</p>
           <LiveWeatherLabel />
         </header>
         <WeatherApp cities={CITIES} defaultCityId={city.id} locatedCityId={located ? city.id : null} />

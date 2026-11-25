@@ -24,10 +24,10 @@ export type ChatAnswers = { activity?: string; city?: string; when?: string; day
 /** Answers Pico's questions with badges: by default hiking in Laval today for 2 hours. */
 export async function planWithPico(page: Page, answers: ChatAnswers = {}): Promise<void> {
   await waitForPlanner(page);
-  await reply(page, answers.activity ?? 'Hiking');
-  await reply(page, answers.city ?? 'Laval');
   await reply(page, answers.when ?? 'Today');
   if (answers.day) await reply(page, answers.day);
+  await reply(page, answers.activity ?? 'Hiking');
+  await reply(page, answers.city ?? 'Laval');
   await reply(page, answers.duration ?? '2 hours');
 }
 

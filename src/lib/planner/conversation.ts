@@ -160,16 +160,16 @@ function whenAnswer(answers: Answers, bounds: DateBounds | null): string {
 function turnsFor(state: ChatState): Turn[] {
   const { answers, bounds, cityName } = state;
   const turns: Turn[] = [];
-  if (!answers.activity) return turns;
-  turns.push({ key: 'activity', question: t.ask.activity, answer: activityLabel(answers.activity) });
-  if (!answers.city) return turns;
-  turns.push({ key: 'city', question: t.ask.city(activityLabel(answers.activity)), answer: cityName });
   if (!answers.when && !answers.date) return turns;
   turns.push({ key: 'when', question: t.ask.when, answer: whenAnswer(answers, bounds) });
   if (isMultiDay(answers.when)) {
     if (!answers.date) return turns;
     turns.push({ key: 'day', question: dayQuestion(answers.when, bounds), answer: relativeDay(answers.date, bounds) });
   }
+  if (!answers.activity) return turns;
+  turns.push({ key: 'activity', question: t.ask.activity, answer: activityLabel(answers.activity) });
+  if (!answers.city) return turns;
+  turns.push({ key: 'city', question: t.ask.city(activityLabel(answers.activity)), answer: cityName });
   if (!answers.duration.trim()) return turns;
   const hours = Number(answers.duration);
   turns.push({
@@ -184,7 +184,7 @@ const ask = (step: ChatStep, prompt: string, choices: Choice[], input: ChatView[
 
 /** Trims turns that come after the question being asked or fixed. */
 function turnsBefore(turns: Turn[], key: TurnKey): Turn[] {
-  const order: TurnKey[] = ['activity', 'city', 'when', 'day', 'duration'];
+  const order: TurnKey[] = ['when', 'day', 'activity', 'city', 'duration'];
   return turns.filter(turn => order.indexOf(turn.key) < order.indexOf(key));
 }
 
@@ -243,9 +243,21 @@ export function chatView(state: ChatState): ChatView {
   }
   if (request?.status === 'loading') return { turns, ...resultView(request) };
 
+  if (!answers.date && !isMultiDay(answers.when)) {
+    return { turns, ...ask('when', t.ask.when, whenChoices(bounds), 'date') };
+  }
+  if (!answers.date) {
+    const dates = bounds && answers.when ? datesForWhen(answers.when, bounds) : [];
+    return {
+      turns,
+      ...ask('day', dayQuestion(answers.when, bounds), dates.map(date => ({
+        id: `day-${date}`, label: relativeDay(date, bounds), detail: dayDetail(date, state.days), answer: { date },
+      })), 'date'),
+    };
+  }
   if (!ACTIVITIES.includes(answers.activity as (typeof ACTIVITIES)[number])) {
     return {
-      turns: [],
+      turns,
       ...ask('activity', t.ask.activity,
         ACTIVITIES.map(a => ({ id: `activity-${a}`, label: activityLabel(a), answer: { activity: a } })), 'activity'),
     };
@@ -257,18 +269,6 @@ export function chatView(state: ChatState): ChatView {
         ...state.cityChoices.map(c => ({ id: `city-${c.id}`, label: c.label, cityId: c.id, answer: { city: true } })),
         { id: 'city-other', label: t.city.other, opens: 'city' as const },
       ]),
-    };
-  }
-  if (!answers.date && !isMultiDay(answers.when)) {
-    return { turns, ...ask('when', t.ask.when, whenChoices(bounds), 'date') };
-  }
-  if (!answers.date) {
-    const dates = bounds && answers.when ? datesForWhen(answers.when, bounds) : [];
-    return {
-      turns,
-      ...ask('day', dayQuestion(answers.when, bounds), dates.map(date => ({
-        id: `day-${date}`, label: relativeDay(date, bounds), detail: dayDetail(date, state.days), answer: { date },
-      })), 'date'),
     };
   }
   if (!answers.duration.trim()) {

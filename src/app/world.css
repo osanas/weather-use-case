@@ -216,14 +216,6 @@
   color: #fff;
   text-shadow: 3px 3px 0 rgb(20 24 48 / 0.5);
 }
-.site-header .tagline {
-  margin: 0;
-  padding: 0.375rem 0.75rem;
-  max-width: 40rem;
-  border-radius: 0.5rem;
-  background: var(--glass);
-  color: var(--fg);
-}
 .live-label {
   display: inline-flex;
   align-items: center;

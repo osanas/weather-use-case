@@ -29,7 +29,7 @@ async function setup(page: Page, montreal: MontrealReply) {
 const world = (page: Page) => page.locator('.world');
 const label = (page: Page) => page.locator('.live-label');
 const particles = (page: Page) => page.locator('canvas.particles');
-const pico = (page: Page) => page.locator('svg.pico-full');
+const pico = (page: Page) => page.locator('.msg-current svg.pico-avatar');
 
 test('shows live rain in Montréal with animated drops and puddles', async ({ page }) => {
   await setup(page, { current: { weatherCode: 61, temperatureC: 4, isDay: true } });

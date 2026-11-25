@@ -12,18 +12,12 @@
 }
 
 .chat-stage { display: grid; gap: 1rem; }
-.chat-hero { display: none; }
-@media (min-width: 48rem) {
-  .chat-stage { grid-template-columns: 8.5rem minmax(0, 1fr); }
-  .chat-hero { display: block; position: sticky; top: 1rem; align-self: start; padding-top: 0.5rem; }
-}
 .chat-main { min-width: 0; }
 /* Above the cards that follow, so the date picker can open over them. */
 .world-content .chat { position: relative; z-index: 2; }
 
 /* Pico at whole-number scales so every art pixel stays square. */
 .pico { flex: none; overflow: visible; }
-.pico-full { width: 120px; height: 120px; }
 .pico-avatar { width: 52px; height: 48px; }
 .pico-still .pico-motion, .pico-still .pico-frame { animation: none !important; }
 .pico-still .pico-frame-0 { visibility: visible; }
@@ -40,25 +34,79 @@
 .msg { display: flex; align-items: flex-end; gap: 0.5rem; min-width: 0; animation: msg-in 240ms steps(3, end) both; }
 .msg-user { justify-content: flex-end; }
 .msg-pico { align-items: flex-start; }
-.bubble {
+/*
+ * Speech bubbles in the pixel comic style of the reference: a near-white body with notched
+ * corners, a 4px black pixel outline, a teal pixel shadow and a stepped tail. The body is
+ * clipped to its notched shape; the outline and shadow come from a filter on the wrapper,
+ * which follows the silhouette of body and tail together. Pico's bubbles point left and the
+ * visitor's point right.
+ */
+.speech {
+  --bubble-fill: #fbfbfd;
+  --bubble-ink: #0b0d12;
+  --bubble-line: #0b0d12;
+  --bubble-shadow: #15a3b2;
   position: relative;
+  display: block;
+  min-width: 0;
   max-width: 34rem;
-  margin: 2px;
+  margin: 4px;
+  padding-bottom: 14px;
+  filter:
+    drop-shadow(4px 0 0 var(--bubble-line)) drop-shadow(-4px 0 0 var(--bubble-line))
+    drop-shadow(0 4px 0 var(--bubble-line)) drop-shadow(0 -4px 0 var(--bubble-line))
+    drop-shadow(4px 4px 0 var(--bubble-shadow));
+}
+.speech-user { --bubble-fill: #dceeff; }
+.speech-tail {
+  position: absolute;
+  top: calc(100% - 16px);
+  width: 24px;
+  height: 16px;
+  background: var(--bubble-fill);
+  clip-path: polygon(0 0, 24px 0, 24px 4px, 16px 4px, 16px 8px, 8px 8px, 8px 12px, 4px 12px, 4px 16px, 0 16px);
+}
+.speech-pico .speech-tail { left: 14px; }
+.speech-user .speech-tail {
+  right: 14px;
+  clip-path: polygon(24px 0, 0 0, 0 4px, 8px 4px, 8px 8px, 16px 8px, 16px 12px, 20px 12px, 20px 16px, 24px 16px);
+}
+
+.bubble {
+  /* The notch is two pixels deep at each corner. */
+  --fg: var(--bubble-ink);
+  --card: var(--bubble-fill);
+  --muted: #4a5260;
+  --border: #c4cad3;
+  position: relative;
+  margin: 0;
   padding: 0.625rem 0.875rem;
-  background: var(--card);
-  color: var(--fg);
+  background: var(--bubble-fill);
+  color: var(--bubble-ink);
   overflow-wrap: anywhere;
-  box-shadow:
-    0 -2px 0 var(--fg), 0 2px 0 var(--fg), -2px 0 0 var(--fg), 2px 0 0 var(--fg),
-    4px 5px 0 var(--pixel-shadow);
+  clip-path: polygon(
+    8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px,
+    100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px),
+    calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%,
+    8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px),
+    0 8px, 4px 8px, 4px 4px, 8px 4px
+  );
 }
 .bubble p { margin: 0; }
-.msg-pico .bubble { border-bottom-left-radius: 0; }
-.msg-user .bubble { background: color-mix(in srgb, var(--accent) 16%, var(--card)); }
 /* min-width: 0 lets the result bubble shrink to a phone screen instead of its content width. */
-.msg-current .bubble { flex: 1; min-width: 0; max-width: none; }
-.msg-current .bubble:focus { outline: 2px dashed var(--accent); outline-offset: 4px; }
+.msg-current .speech { flex: 1 1 0; min-width: 0; max-width: none; }
+.msg-current .bubble:focus { outline: 3px dashed var(--accent); outline-offset: -10px; }
 .guide-bubble { font-size: 1rem; }
+
+/* Pico's greeting: two bubbles that pop in one after the other, the second after a beat. */
+.msg-greeting { padding-left: calc(52px + 0.5rem); }
+.speech-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 0.375rem; min-width: 0; }
+.speech-stack .speech { flex: none; transform-origin: 0 100%; animation: speech-pop 320ms steps(4, end) both; }
+.speech-stack .speech:nth-child(1) { animation-delay: 240ms; }
+.speech-stack .speech:nth-child(2) { animation-delay: 1140ms; }
+/* Then the first question and its answers. Both elements stay mounted, so this runs once. */
+.chat-log > .msg-current { animation-delay: 1700ms; }
+.composer { animation: msg-in 240ms steps(3, end) 1900ms both; }
 
 .world-content .msg-edit,
 .world-content .link-button {
@@ -211,9 +259,11 @@
 .msg-current .plan-result .note { font-size: 0.875rem; }
 
 @keyframes msg-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+/* No overshoot: a bubble never grows past its box, so a phone screen never scrolls sideways. */
+@keyframes speech-pop { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: none; } }
 @keyframes typing { 0% { opacity: 1; } 50% { opacity: 0.25; } }
 @keyframes strip-on { from { transform: scaleY(0.2); } to { transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .msg, .picker-dialog, .plan-card, .plan-strip span.on, .typing i { animation: none !important; }
+  .msg, .speech, .composer, .picker-dialog, .plan-card, .plan-strip span.on, .typing i { animation: none !important; }
 }

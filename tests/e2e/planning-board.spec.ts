@@ -43,31 +43,30 @@ const plans = (page: Page) => board(page).locator('.board-plan');
 const pico = (page: Page) => page.locator('.msg-current .guide-bubble');
 
 async function planHikingSaturday(page: Page) {
-  await reply(page, 'Hiking');
-  await reply(page, 'Laval');
   await reply(page, 'This weekend');
   await reply(page, 'Sat, Jun 19');
+  await reply(page, 'Hiking');
+  await reply(page, 'Laval');
   await reply(page, '2 hours');
 }
 
-test('fills in as the conversation goes: draft, day, then the planner window', async ({ page }) => {
+test('fills in as the conversation goes: draft on its day, then the planner window', async ({ page }) => {
   await setup(page);
   await expect(board(page)).toContainText('Your week in Laval, Québec');
   await expect(board(page).getByRole('list', { name: 'Forecast days' }).locator('> li')).toHaveCount(7);
   await expect(plans(page)).toHaveCount(0);
 
+  // The day comes first; the plan appears once there is an activity.
+  await reply(page, 'This weekend');
+  await reply(page, 'Sat, Jun 19');
+  await expect(plans(page)).toHaveCount(0);
   await reply(page, 'Hiking');
-  await expect(board(page).locator('.board-tray')).toContainText('Not scheduled yet');
   await expect(plans(page)).toHaveCount(1);
-  await expect(plans(page).first()).toHaveAttribute('aria-label', 'Hiking, day not chosen, draft, no time yet. Open in the chat');
+  await expect(board(page).locator('.board-tray')).toHaveCount(0);
+  await expect(day(page, '2027-06-19').locator('.board-plan')).toHaveText(/Hiking\s*finding a time/);
   await expect(plans(page).first()).toHaveAttribute('aria-current', 'true');
 
   await reply(page, 'Laval');
-  await reply(page, 'This weekend');
-  await reply(page, 'Sat, Jun 19');
-  await expect(board(page).locator('.board-tray')).toHaveCount(0);
-  await expect(day(page, '2027-06-19').locator('.board-plan')).toHaveText(/Hiking\s*finding a time/);
-
   await reply(page, '2 hours');
   const planned = day(page, '2027-06-19').locator('.board-plan');
   await expect(planned).toHaveText(/Hiking\s*11:00 EDT – 13:00 EDT/);
@@ -78,6 +77,11 @@ test('fills in as the conversation goes: draft, day, then the planner window', a
   await expect(day(page, '2027-06-19').locator('.board-limit')).toHaveCount(2);
   await expect(day(page, '2027-06-19').locator('.board-track > span')).toHaveCount(24);
   await expect(day(page, '2027-06-14').locator('.board-track > span')).toHaveCount(16);
+
+  // Trying another day takes the plan off its day until a new one is chosen.
+  await reply(page, 'Try another day');
+  await expect(board(page).locator('.board-tray')).toContainText('Not scheduled yet');
+  await expect(plans(page).first()).toHaveAttribute('aria-label', 'Hiking, day not chosen, 2 hours, draft, no time yet. Open in the chat');
 });
 
 test('keeps several plans and reopens one in the chat without a request', async ({ page }) => {
@@ -86,8 +90,10 @@ test('keeps several plans and reopens one in the chat without a request', async 
   await expect(day(page, '2027-06-19').locator('.board-plan')).toContainText('11:00 EDT');
 
   await reply(page, 'Plan another activity');
-  await reply(page, 'Walking');
+  // A new plan starts without the previous plan card.
+  await expect(page.locator('.plan-card')).toHaveCount(0);
   await reply(page, 'Tomorrow');
+  await reply(page, 'Walking');
   await reply(page, '1 hour');
   await expect(day(page, '2027-06-15').locator('.board-plan')).toHaveText(/Walking\s*No window/);
   await expect(plans(page)).toHaveCount(2);
@@ -131,6 +137,7 @@ test('keeps the days without bars when the forecast is unavailable', async ({ pa
   await expect(board(page)).toContainText('Forecast unavailable. Plans are still shown.');
   await expect(board(page).locator('.board-day')).toHaveCount(7);
   await expect(board(page).locator('.board-bars')).toHaveCount(0);
+  await reply(page, 'Today');
   await reply(page, 'Walking');
   await expect(plans(page)).toHaveCount(1);
 });

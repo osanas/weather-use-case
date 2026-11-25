@@ -5,8 +5,6 @@
 export const messages = {
   chat: {
     heading: 'Plan an activity',
-    intro: (city: string) =>
-      `Chat with Pico to find the best time in ${city}. Precipitation and wind limits are set by the app and shown with the result.`,
     conversation: 'Conversation with Pico',
     answers: 'Your answer',
     edit: 'Edit',
@@ -18,9 +16,11 @@ export const messages = {
     confirm: 'OK',
   },
   ask: {
-    activity: 'Hi, I’m Pico! What would you like to do?',
+    hello: 'Hey, I’m Pico! ☀️',
+    tagline: '👋 Rain or shine, I’ll find the perfect time for your adventure.',
+    activity: 'What would you like to do?',
     city: (activity: string) => `${activity} it is! Where are you heading?`,
-    when: 'When do you want to go out?',
+    when: 'When do you want to go outside?',
     dayWeekend: 'Here’s the weekend forecast. Which day suits you?',
     dayNextWeek: (last: string) => `I can see the forecast up to ${last}. Which day suits you?`,
     dayFlexible: 'Here’s the week ahead. Pick the day that suits you.',
