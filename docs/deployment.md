@@ -26,8 +26,9 @@ Import the Git repository into Vercel as a Next.js project. Use `main` as the pr
 | `GROQ_API_KEY` | `.env.local` | Only for an AI-enabled preview, with its own key | Production key if Groq is selected | Never |
 | `GROQ_MODEL` | `.env.local` | With the key | Tested model id | Never |
 | `ZAP_TARGET_URL` | — | — | — | Repository secret read by the ZAP baseline workflow |
+| `ANTHROPIC_API_KEY` | — | — | — | Repository secret read only by the Claude security review workflow; a dedicated key with a spend limit, never an app variable |
 
-Locally, copy `.env.example` to `.env.local` and fill in the values. In Vercel, add them under **Project → Settings → Environment Variables**, choose the environment, then redeploy: changes apply to new deployments only. In GitHub, add `ZAP_TARGET_URL` under **Settings → Secrets and variables → Actions**. CI needs no secret.
+Locally, copy `.env.example` to `.env.local` and fill in the values. In Vercel, add them under **Project → Settings → Environment Variables**, choose the environment, then redeploy: changes apply to new deployments only. In GitHub, add `ZAP_TARGET_URL` and `ANTHROPIC_API_KEY` under **Settings → Secrets and variables → Actions**. CI needs no secret; without `ANTHROPIC_API_KEY` the Claude security review is skipped.
 
 Commit an `.env.example` with placeholders and ignore local secret files. Keep secrets out of builds, client variables, CI logs and fixture files. Environment changes apply to new Vercel deployments. Revoke and replace any exposed key, even if the commit is later removed. Configure service quota or usage limits and verify how they behave before enabling AI.
 
@@ -90,7 +91,13 @@ Fill this table for the release commit. Keep credentials and identifying log exc
 | Verify (lint, typecheck, unit, build, client-bundle check, Playwright) | GitHub Actions `ci.yml` | Behaviour, security headers, privacy notice link, no AI configuration in the client bundle |
 | Gitleaks | `gitleaks.yml` | No secret in repository history |
 | OSV-Scanner, Trivy | `osv-scanner.yml`, `trivy.yml` | No known vulnerable dependency or high-severity misconfiguration |
+| Dependency review | `dependency-review.yml` | The PR adds no dependency with a HIGH or CRITICAL advisory |
+| CodeQL | GitHub code scanning default setup (JavaScript/TypeScript, Actions) | No open static-analysis alert in the application code or workflows |
+| Claude security review | `claude-security-review.yml` | The diff was reviewed against the project boundaries; findings are answered in the PR (advisory, needs `ANTHROPIC_API_KEY`) |
 | actionlint | `actionlint.yml` | Workflows are valid |
+| OpenSSF Scorecard | `scorecard.yml` (push to `main`, weekly) | Supply-chain practices score, published in the README badge |
+
+Third-party actions are pinned to full commit SHAs and updated by Dependabot. The Claude security review sends the pull request diff (source code, no visitor data) to Anthropic; it adds no runtime processor and runs only for pull requests from this repository.
 
 ### Production checks (maintainer)
 

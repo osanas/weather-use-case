@@ -1,5 +1,7 @@
 # Weather Window
 
+[![CI](https://github.com/osanas/weather-use-case/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/osanas/weather-use-case/actions/workflows/ci.yml) [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/osanas/weather-use-case/badge)](https://scorecard.dev/viewer/?uri=github.com/osanas/weather-use-case)
+
 A weather app with an assistant that finds the best forecast window for an outdoor activity.
 
 Fill in the table below after the production checks in [Deployment](docs/deployment.md#release-record); `npm run check:release` fails until it is complete.
@@ -79,4 +81,4 @@ Use fixed fixtures for CI and the live deployment for an end-to-end smoke test. 
 
 Track work in Linear, link the ticket to a GitHub pull request, run the Verify check and review the Vercel preview before merging. The [team workflow](docs/team-workflow.md) contains setup instructions, the initial backlog and the Playwright contracts.
 
-Every pull request runs CI (lint, typecheck, unit and browser tests, build) and security scans: Gitleaks for secrets, OSV-Scanner and Trivy for vulnerable dependencies and misconfiguration, and actionlint for the workflows. OWASP ZAP scans the deployed site weekly and Dependabot proposes updates. The [use-case presentation](docs/use-case-presentation.md) explains each check and includes the architecture, planning and workflow diagrams.
+Every pull request runs CI (lint, typecheck, unit and browser tests, build) and security scans: Gitleaks for secrets, OSV-Scanner, Trivy and dependency review for vulnerable dependencies and misconfiguration, CodeQL for the code, a Claude security review of the diff against the project boundaries, and actionlint for the workflows. OpenSSF Scorecard rates the supply chain, OWASP ZAP scans the deployed site weekly and Dependabot proposes updates. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md). The [use-case presentation](docs/use-case-presentation.md) explains each check and includes the architecture, planning and workflow diagrams.
