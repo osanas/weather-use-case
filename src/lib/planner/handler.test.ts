@@ -8,6 +8,7 @@ import { createPlanHandler, MAX_PLAN_BODY_BYTES, type PlanLogEntry } from './han
 import * as plannerModule from './planner';
 import { addCalendarDays, hourStartsOfDay } from './planner';
 import { APPROVED_THRESHOLDS, approvedThresholdPolicy, type ThresholdPolicy } from './thresholds';
+import { ACTIVITIES } from './types';
 import type { Activity, Thresholds } from './types';
 
 // Synthetic data only. Laval, EDT (UTC-4); provider midnights at 04:00Z.
@@ -104,7 +105,7 @@ describe('POST /api/plan', () => {
     it('uses the approved WEA-12 defaults for each activity with the production policy', async () => {
       const plan = vi.spyOn(plannerModule, 'planActivityWindow');
       const { postJson } = setup(undefined, approvedThresholdPolicy);
-      for (const activity of ['hiking', 'cycling', 'walking'] as const) {
+      for (const activity of ACTIVITIES) {
         const res = await postJson({ ...criteria, activity });
         const body = await res.json();
         expect(body.outcome).not.toBe('planning_unavailable');
@@ -159,6 +160,8 @@ describe('POST /api/plan', () => {
         hiking: { maxPrecipitationProbability: 11, maxWindKmh: 22 },
         cycling: { maxPrecipitationProbability: 13, maxWindKmh: 14 },
         walking: { maxPrecipitationProbability: 37, maxWindKmh: 33 },
+        errands: { maxPrecipitationProbability: 25, maxWindKmh: 26 },
+        other: { maxPrecipitationProbability: 31, maxWindKmh: 29 },
       };
       const policy = vi.fn<ThresholdPolicy>(activity => byActivity[activity]);
       const plan = vi.spyOn(plannerModule, 'planActivityWindow');

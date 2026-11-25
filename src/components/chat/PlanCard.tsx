@@ -1,6 +1,6 @@
 import { describeWeatherCode, formatHour, formatTemperature } from '@/lib/format';
 import { messages as t } from '@/lib/i18n/messages';
-import { activityLabel, relativeDay } from '@/lib/planner/conversation';
+import { relativeDay } from '@/lib/planner/conversation';
 import type { DateBounds } from '@/lib/planner/form';
 import type { PlanResponse } from '@/lib/planner/types';
 import type { DailySummary } from '@/lib/weather/types';
@@ -20,8 +20,10 @@ function localHour(iso: string, timeZone: string, end = false): number {
  * strip with the planner's window. The window is drawn exactly as the planner returned it;
  * nothing here judges the weather. The result region below states the same in text.
  */
-export function PlanCard({ data, timeZone, bounds, day }: {
+export function PlanCard({ data, name, timeZone, bounds, day }: {
   data: Match;
+  /** The activity as the visitor named it. */
+  name: string;
   timeZone: string;
   bounds: DateBounds | null;
   day: DailySummary | undefined;
@@ -34,7 +36,7 @@ export function PlanCard({ data, timeZone, bounds, day }: {
       <div className="plan-card-head">
         <span className="plan-card-dot" />
         <span className="plan-card-day">{relativeDay(criteria.date, bounds)}</span>
-        <span className="plan-card-activity">{activityLabel(criteria.activity)}</span>
+        <span className="plan-card-activity">{name}</span>
         {day ? (
           <span className="plan-card-weather">
             {describeWeatherCode(day.weatherCode)} · {formatTemperature(day.maxC)}

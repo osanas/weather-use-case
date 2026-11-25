@@ -85,7 +85,7 @@ test('asks one question at a time and sends one request with the answers', async
   await reply(page, 'Sat, Jun 19');
 
   await expect(pico(page)).toHaveText('What would you like to do?');
-  await expect(badges(page)).toHaveText(['Hiking', 'Cycling', 'Walking']);
+  await expect(badges(page)).toHaveText(['Walking', 'Errands', 'Hiking', 'Cycling']);
   await reply(page, 'Hiking');
 
   await expect(pico(page)).toHaveText('Hiking it is! Where are you heading?');
@@ -168,25 +168,43 @@ test('picks a date from the keyboard in the pixel calendar', async ({ page }) =>
   await expect(pico(page)).toHaveText('What would you like to do?');
 });
 
-test('takes a typed activity and a stepped duration', async ({ page }) => {
-  const plan = await setup(page);
+test('takes a typed activity name that never leaves the browser, and a stepped duration', async ({ page }) => {
+  const plan = await setup(page, [{ json: {
+    ...match, start: '2027-06-15T15:00:00Z', end: '2027-06-15T18:00:00Z',
+    criteria: { ...criteria, activity: 'other', date: '2027-06-15', durationHours: 3, maxPrecipitationProbability: 30, maxWindKmh: 30 },
+  } }]);
   await reply(page, 'Tomorrow');
   await composer(page).getByRole('button', { name: 'Type it instead' }).click();
-  const activity = page.getByLabel('Activity', { exact: true });
+  const activity = page.getByLabel('Your activity', { exact: true });
   await expect(activity).toBeFocused();
-  await activity.selectOption('walking');
+
+  // Markup and symbols are refused with a message, and nothing is answered.
+  await activity.fill('<b>run</b> 🏃');
   await composer(page).getByRole('button', { name: 'OK' }).click();
-  await expect(log(page).locator('.msg-user .bubble')).toHaveText(['You: Tomorrow', 'You: Walking']);
+  await expect(composer(page).getByRole('alert')).toHaveText('Use letters, numbers, spaces and simple punctuation only.');
+  await expect(activity).toHaveAttribute('aria-invalid', 'true');
+  await expect(log(page).locator('.msg-user .bubble')).toHaveText(['You: Tomorrow']);
+
+  await activity.fill('  Walk   the dog ');
+  await composer(page).getByRole('button', { name: 'OK' }).click();
+  await expect(log(page).locator('.msg-user .bubble')).toHaveText(['You: Tomorrow', 'You: Walk the dog']);
+  await expect(pico(page)).toHaveText('Walk the dog it is! Where are you heading?');
 
   await reply(page, 'Laval');
   await composer(page).getByRole('button', { name: 'Type it instead' }).click();
   await composer(page).getByRole('button', { name: 'One hour more' }).click();
   await composer(page).getByRole('button', { name: 'One hour more' }).click();
   await expect(page.getByLabel('Duration (hours)', { exact: true })).toHaveValue('3');
-  await expect(composer(page).getByRole('button', { name: 'One hour more' })).toBeEnabled();
   await composer(page).getByRole('button', { name: 'OK' }).click();
   await expect.poll(() => plan.bodies.length).toBe(1);
-  expect(plan.bodies[0]).toEqual({ cityId: 'laval-qc', activity: 'walking', date: '2027-06-15', durationHours: 3 });
+  // Only the profile is sent: the typed name is not in the request.
+  expect(plan.bodies[0]).toEqual({ cityId: 'laval-qc', activity: 'other', date: '2027-06-15', durationHours: 3 });
+  expect(JSON.stringify(plan.bodies)).not.toContain('dog');
+
+  await expect(page.locator('.plan-card')).toContainText('Walk the dog');
+  await expect(result(page)).toContainText('Walk the dog (Other activity limits)');
+  await expect(page.getByRole('region', { name: 'Planning board' }).getByRole('button', { name: /^Walk the dog, Tuesday, June 15/ }))
+    .toBeVisible();
 });
 
 test('chooses another city from the local search and plans there', async ({ page }) => {

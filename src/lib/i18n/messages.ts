@@ -36,7 +36,9 @@ export const messages = {
     fixForm: 'Something needs another look.',
   },
   fields: { activity: 'the activity', date: 'the date', durationHours: 'the duration' },
-  activity: { hiking: 'Hiking', cycling: 'Cycling', walking: 'Walking' } as Record<string, string>,
+  activity: {
+    walking: 'Walking', errands: 'Errands', hiking: 'Hiking', cycling: 'Cycling', other: 'Other activity',
+  } as Record<string, string>,
   when: {
     today: 'Today',
     tomorrow: 'Tomorrow',
@@ -59,7 +61,11 @@ export const messages = {
     unavailable: 'Outside the forecast',
   },
   durationInput: { label: 'Duration (hours)', less: 'One hour less', more: 'One hour more' },
-  activityInput: { label: 'Activity', placeholder: 'Choose an activity' },
+  activityInput: {
+    label: 'Your activity',
+    placeholder: 'For example: walk the dog',
+    hint: 'Only shown on this page. Pico plans it with the “Other activity” limits.',
+  },
   card: {
     planned: (activity: string) => `${activity} plan`,
     window: 'Best window',

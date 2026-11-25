@@ -8,6 +8,8 @@ describe('approved threshold defaults (WEA-12)', () => {
       cycling: { maxPrecipitationProbability: 20, maxWindKmh: 20 },
       hiking: { maxPrecipitationProbability: 30, maxWindKmh: 30 },
       walking: { maxPrecipitationProbability: 40, maxWindKmh: 35 },
+      errands: { maxPrecipitationProbability: 30, maxWindKmh: 30 },
+      other: { maxPrecipitationProbability: 30, maxWindKmh: 30 },
     });
   });
 
