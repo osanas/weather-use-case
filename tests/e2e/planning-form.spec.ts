@@ -97,9 +97,9 @@ test('reports insufficient forecast data and lets the user try again', async ({ 
 test('validates a typed duration in the browser and sends nothing until it is valid', async ({ page }) => {
   const requests = await setup(page, [{ json: match }]);
   await waitForPlanner(page);
+  await reply(page, 'Today');
   await reply(page, 'Hiking');
   await reply(page, 'Laval');
-  await reply(page, 'Today');
   await composer(page).getByRole('button', { name: 'Type it instead' }).click();
   const duration = page.getByLabel('Duration (hours)', { exact: true });
   await expect(duration).toBeFocused();
@@ -137,8 +137,6 @@ test('shows an accessible message when planning is unavailable', async ({ page }
 test('offers dates from today to six days ahead in the city zone', async ({ page }) => {
   await setup(page, [{ json: match }]);
   await waitForPlanner(page);
-  await reply(page, 'Hiking');
-  await reply(page, 'Laval');
   await composer(page).getByRole('button', { name: 'Pick a date' }).click();
   const enabled = page.getByRole('dialog', { name: 'June 2027' }).getByRole('button', { name: /June \d+$/ });
   await expect(enabled).toHaveText(['14', '15', '16', '17', '18', '19', '20']);
@@ -194,7 +192,6 @@ test('never shows a result for a previously selected city', async ({ page }) => 
   await page.getByRole('option', { name: /Vancouver/ }).click();
   await expect(result(page)).toBeEmpty();
   await expect(page.getByRole('heading', { name: 'Plan an activity' })).toBeVisible();
-  await expect(page.getByText('Chat with Pico to find the best time in Vancouver, British Columbia')).toBeVisible();
   // Nothing is sent for the new city until the visitor asks.
   await expect(pico(page)).toHaveText('Ready when you are. Shall I check Vancouver, British Columbia?');
 });

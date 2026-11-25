@@ -39,7 +39,7 @@ type Props = {
 };
 
 /**
- * Pico's planning conversation. Pico asks for the activity, the city, the day and the
+ * Pico's planning conversation. Pico asks for the day, the activity, the city and the
  * duration; each answer is a badge or a structured input (select, date picker, hour
  * stepper), never free text. The last answer sends one request to `/api/plan` with the same
  * validation as before, and the planner's result is shown in Pico's bubble.
@@ -131,7 +131,10 @@ export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, r
   }
 
   const result = view.step === 'result' || view.step === 'checking' || view.step === 'error';
-  const match = planner.request?.status === 'done' && planner.request.data.outcome === 'match' ? planner.request.data : null;
+  // Only the answer to the current question: a new plan never shows the previous card.
+  const match = view.step === 'result' && planner.request?.status === 'done' && planner.request.data.outcome === 'match'
+    ? planner.request.data
+    : null;
 
   return (
     <section
@@ -141,20 +144,35 @@ export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, r
       data-ready={planner.bounds ? 'true' : undefined}
     >
       <h2 id="planner-heading">{t.chat.heading}</h2>
-      <p className="note">{t.chat.intro(cityName)}</p>
       <div className="chat-stage">
-        <div className="chat-hero" aria-hidden="true">
-          <Companion mood={view.mood} />
-        </div>
         <div className="chat-main">
           <ol className="chat-log" aria-label={t.chat.conversation}>
+            {/* Pico's greeting, grouped with the question below it: one Pico speaks for both. */}
+            <li className="msg msg-pico msg-greeting">
+              <div className="speech-stack">
+                <div className="speech speech-pico">
+                  <p className="bubble">{t.ask.hello}</p>
+                  <span className="speech-tail" aria-hidden="true" />
+                </div>
+                <div className="speech speech-pico">
+                  <p className="bubble">{t.ask.tagline}</p>
+                  <span className="speech-tail" aria-hidden="true" />
+                </div>
+              </div>
+            </li>
             {view.turns.flatMap(turn => [
               <li key={`${turn.key}-q`} className="msg msg-pico">
                 <Companion mood="hello" variant="avatar" still />
-                <p className="bubble">{turn.question}</p>
+                <div className="speech speech-pico">
+                  <p className="bubble">{turn.question}</p>
+                  <span className="speech-tail" aria-hidden="true" />
+                </div>
               </li>,
               <li key={`${turn.key}-a`} className="msg msg-user">
-                <p className="bubble"><span className="sr-only">{t.chat.you}: </span>{turn.answer}</p>
+                <div className="speech speech-user">
+                  <p className="bubble"><span className="sr-only">{t.chat.you}: </span>{turn.answer}</p>
+                  <span className="speech-tail" aria-hidden="true" />
+                </div>
                 <button type="button" className="msg-edit" aria-label={t.chat.editAnswer(turn.answer)} onClick={() => edit(turn.key)}>
                   {t.chat.edit}
                 </button>
@@ -163,21 +181,24 @@ export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, r
             ])}
             <li className="msg msg-pico msg-current" data-step={view.step}>
               <Companion mood={view.mood} variant="avatar" />
-              <div className="bubble" ref={currentRef} tabIndex={-1}>
-                <p className="guide-bubble" aria-live={view.announce ? 'polite' : 'off'} aria-atomic="true">
-                  {view.prompt}
-                </p>
-                {view.step === 'checking' ? <span className="typing" aria-hidden="true"><i /><i /><i /></span> : null}
-                {match ? (
-                  <PlanCard data={match} timeZone={city.timeZone} bounds={planner.bounds} day={days?.find(d => d.date === match.criteria.date)} />
-                ) : null}
-                <PlanResult
-                  state={result ? planner.request : null}
-                  city={city}
-                  cityName={cityName}
-                  onRetry={planner.retry}
-                  compact
-                />
+              <div className="speech speech-pico">
+                <div className="bubble" ref={currentRef} tabIndex={-1}>
+                  <p className="guide-bubble" aria-live={view.announce ? 'polite' : 'off'} aria-atomic="true">
+                    {view.prompt}
+                  </p>
+                  {view.step === 'checking' ? <span className="typing" aria-hidden="true"><i /><i /><i /></span> : null}
+                  {match ? (
+                    <PlanCard data={match} timeZone={city.timeZone} bounds={planner.bounds} day={days?.find(d => d.date === match.criteria.date)} />
+                  ) : null}
+                  <PlanResult
+                    state={result ? planner.request : null}
+                    city={city}
+                    cityName={cityName}
+                    onRetry={planner.retry}
+                    compact
+                  />
+                </div>
+                <span className="speech-tail" aria-hidden="true" />
               </div>
             </li>
           </ol>
