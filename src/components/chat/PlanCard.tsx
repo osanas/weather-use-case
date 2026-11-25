@@ -1,0 +1,54 @@
+import { describeWeatherCode, formatHour, formatTemperature } from '@/lib/format';
+import { messages as t } from '@/lib/i18n/messages';
+import { activityLabel, relativeDay } from '@/lib/planner/conversation';
+import type { DateBounds } from '@/lib/planner/form';
+import type { PlanResponse } from '@/lib/planner/types';
+import type { DailySummary } from '@/lib/weather/types';
+
+type Match = Extract<PlanResponse, { outcome: 'match' }>;
+
+const HOURS = Array.from({ length: 24 }, (_, h) => h);
+
+/** Local hour (0–24) of an instant in the city's zone; midnight at the end counts as 24. */
+function localHour(iso: string, timeZone: string, end = false): number {
+  const hour = Number(new Intl.DateTimeFormat('en-CA', { hour: 'numeric', hourCycle: 'h23', timeZone }).format(Date.parse(iso)));
+  return end && hour === 0 ? 24 : hour;
+}
+
+/**
+ * The plan as a card in Pico's bubble: the day, its public forecast summary and a 24-hour
+ * strip with the planner's window. The window is drawn exactly as the planner returned it;
+ * nothing here judges the weather. The result region below states the same in text.
+ */
+export function PlanCard({ data, timeZone, bounds, day }: {
+  data: Match;
+  timeZone: string;
+  bounds: DateBounds | null;
+  day: DailySummary | undefined;
+}) {
+  const from = localHour(data.start, timeZone);
+  const to = localHour(data.end, timeZone, true);
+  const { criteria } = data;
+  return (
+    <div className="plan-card" aria-hidden="true">
+      <div className="plan-card-head">
+        <span className="plan-card-dot" />
+        <span className="plan-card-day">{relativeDay(criteria.date, bounds)}</span>
+        <span className="plan-card-activity">{activityLabel(criteria.activity)}</span>
+        {day ? (
+          <span className="plan-card-weather">
+            {describeWeatherCode(day.weatherCode)} · {formatTemperature(day.maxC)}
+          </span>
+        ) : null}
+      </div>
+      <div className="plan-card-window">
+        <span>{formatHour(data.start, timeZone)} – {formatHour(data.end, timeZone)}</span>
+        <span className="plan-card-label">{t.card.window}</span>
+      </div>
+      <div className="plan-strip">
+        {HOURS.map(h => <span key={h} className={h >= from && h < to ? 'on' : undefined} />)}
+      </div>
+      <div className="plan-strip-scale"><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></div>
+    </div>
+  );
+}

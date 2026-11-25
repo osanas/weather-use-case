@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import type { City } from '@/lib/cities';
 import { formatDay, formatHour, formatPercent, formatWind } from '@/lib/format';
 import type { PlanRequest } from '@/lib/planner/criteria';
@@ -34,22 +35,27 @@ function Constraints({ criteria }: { criteria: PlanCriteria }) {
 }
 
 /** Live region for the planning outcome. Times are shown in the city's IANA zone. */
-export function PlanResult({ state, city, cityName, onRetry }: {
+export function PlanResult({ state, city, cityName, onRetry, compact = false }: {
   state: State | null;
   city: City;
   cityName: string;
   onRetry: () => void;
+  /** Folds the explanation into a Details disclosure (chat bubble); constraints stay visible. */
+  compact?: boolean;
 }) {
   return (
     <div role="region" aria-label="Planning result" aria-live="polite" className="plan-result">
-      {state ? <Content state={state} city={city} cityName={cityName} onRetry={onRetry} /> : null}
+      {state ? <Content state={state} city={city} cityName={cityName} onRetry={onRetry} compact={compact} /> : null}
     </div>
   );
 }
 
-function Content({ state, city, cityName, onRetry }: {
-  state: State; city: City; cityName: string; onRetry: () => void;
+function Content({ state, city, cityName, onRetry, compact }: {
+  state: State; city: City; cityName: string; onRetry: () => void; compact: boolean;
 }) {
+  const fold = (children: ReactNode) => compact
+    ? <details className="plan-details"><summary>How Pico chose this</summary>{children}</details>
+    : children;
   if (state.status === 'loading') {
     return <p id="plan-loading" role="status">Finding the best time in {cityName}…</p>;
   }
@@ -91,6 +97,7 @@ function Content({ state, city, cityName, onRetry }: {
           <dt>Highest precipitation probability</dt><dd>{formatPercent(data.maxPrecipitationProbability)}</dd>
           <dt>Highest sustained wind</dt><dd>{formatWind(data.maxWindKmh)}</dd>
         </dl>
+        {fold(<>
         <p className="explanation">
           {/* Server-owned template filled from planner values; model text is never rendered. */}
           Every hour stays within the {criteria.activity} limits of{' '}
@@ -99,6 +106,7 @@ function Content({ state, city, cityName, onRetry }: {
           this one has the lowest precipitation chance ({formatPercent(data.maxPrecipitationProbability)}),
           then the lightest wind ({formatWind(data.maxWindKmh)}), then the earliest start.
         </p>
+        </>)}
         <Constraints criteria={criteria} />
         <p className="note">
           Based on the Open-Meteo forecast for {cityName}. Forecast conditions can change, so check again

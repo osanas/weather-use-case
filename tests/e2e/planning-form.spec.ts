@@ -1,5 +1,5 @@
 import { expect, test, type Page, type Request } from '@playwright/test';
-import { makeForecast } from './fixtures';
+import { composer, makeForecast, planWithPico, reply, waitForPlanner } from './fixtures';
 
 // Synthetic responses only. The browser runs in America/Toronto with a fixed clock;
 // /api/weather and /api/plan are intercepted, so CI never calls a provider.
@@ -34,14 +34,9 @@ async function setup(page: Page, replies: PlanReply[]) {
   return requests;
 }
 
-async function fillForm(page: Page, values: Partial<Record<'date' | 'duration', string>> = {}) {
-  await page.getByLabel('Activity', { exact: true }).selectOption('hiking');
-  await page.getByLabel('Date', { exact: true }).fill(values.date ?? '2027-06-14');
-  await page.getByLabel('Duration (hours)', { exact: true }).fill(values.duration ?? '2');
-}
 
 const result = (page: Page) => page.getByRole('region', { name: 'Planning result' });
-const findButton = (page: Page) => page.getByRole('button', { name: 'Find best time' });
+const pico = (page: Page) => page.locator('.msg-current .guide-bubble');
 
 // Effective criteria echoed by the server. The thresholds are synthetic test values, not
 // the approved defaults, so the test proves the limits shown come from the response.
@@ -56,8 +51,7 @@ const match = {
 
 test('shows the constraints used and forecast values for a successful Laval hiking request', async ({ page }) => {
   const requests = await setup(page, [{ json: match }]);
-  await fillForm(page);
-  await findButton(page).click();
+  await planWithPico(page);
 
   await expect(result(page)).toContainText('Best time: Mon, Jun 14, 11:00 EDT to 13:00 EDT');
   await expect(result(page)).toContainText('Rule-based recommendation');
@@ -80,8 +74,7 @@ test('shows the constraints used and forecast values for a successful Laval hiki
 
 test('reports clearly when no window meets the criteria', async ({ page }) => {
   await setup(page, [{ json: { outcome: 'no_match', mode: 'rule-based', criteria } }]);
-  await fillForm(page);
-  await findButton(page).click();
+  await planWithPico(page);
   await expect(result(page).getByRole('heading', { name: 'No time meets these limits' })).toBeVisible();
   await expect(result(page)).toContainText('No 2-hour period on Mon, Jun 14 in Laval, Québec');
   await expect(result(page)).toContainText('stays within the precipitation and wind limits for every hour');
@@ -93,8 +86,7 @@ test('reports insufficient forecast data and lets the user try again', async ({ 
     { json: { outcome: 'insufficient', reason: 'missing_data', mode: 'rule-based', criteria } },
     { json: { outcome: 'insufficient', reason: 'stale', mode: 'rule-based', criteria } },
   ]);
-  await fillForm(page);
-  await findButton(page).click();
+  await planWithPico(page);
   await expect(result(page).getByRole('heading', { name: 'Forecast insufficient' })).toBeVisible();
   await expect(result(page)).toContainText('missing readings, so a reliable time cannot be recommended');
   await result(page).getByRole('button', { name: 'Try again' }).click();
@@ -102,25 +94,22 @@ test('reports insufficient forecast data and lets the user try again', async ({ 
   expect(requests).toHaveLength(2);
 });
 
-test('validates inputs in the browser and sends nothing until they are valid', async ({ page }) => {
+test('validates a typed duration in the browser and sends nothing until it is valid', async ({ page }) => {
   const requests = await setup(page, [{ json: match }]);
-  await findButton(page).click();
-
-  const activity = page.getByLabel('Activity', { exact: true });
-  await expect(activity).toBeFocused();
-  await expect(activity).toHaveAttribute('aria-invalid', 'true');
-  await expect(activity).toHaveAccessibleDescription('Choose an activity.');
-  await expect(page.getByLabel('Date', { exact: true })).toHaveAccessibleDescription('Choose a date from 2027-06-14 to 2027-06-20.');
-
-  await fillForm(page, { duration: '5', date: '2027-06-21' });
-  await findButton(page).click();
-  await expect(page.getByLabel('Date', { exact: true })).toBeFocused();
-  await expect(page.getByLabel('Duration (hours)', { exact: true })).toHaveAccessibleDescription('Enter a whole number of hours from 1 to 4.');
-  await expect(activity).not.toHaveAttribute('aria-invalid');
+  await waitForPlanner(page);
+  await reply(page, 'Hiking');
+  await reply(page, 'Laval');
+  await reply(page, 'Today');
+  await composer(page).getByRole('button', { name: 'Type it instead' }).click();
+  const duration = page.getByLabel('Duration (hours)', { exact: true });
+  await expect(duration).toBeFocused();
+  await duration.fill('5');
+  await composer(page).getByRole('button', { name: 'OK' }).click();
+  await expect(pico(page)).toHaveText('One thing to fix first: the duration. Enter a whole number of hours from 1 to 4.');
+  await expect(composer(page).getByRole('button', { name: '2 hours' })).toBeVisible();
   expect(requests).toHaveLength(0);
 
-  await fillForm(page);
-  await page.getByLabel('Duration (hours)', { exact: true }).press('Enter');
+  await reply(page, '2 hours');
   await expect(result(page)).toContainText('Best time');
   expect(requests).toHaveLength(1);
 });
@@ -130,14 +119,13 @@ test('has no precipitation or wind controls and shows no threshold values before
   await expect(page.getByLabel('Maximum precipitation (%)')).toHaveCount(0);
   await expect(page.getByLabel('Maximum wind (km/h)')).toHaveCount(0);
   const planner = page.getByRole('region', { name: 'Plan an activity' });
-  await expect(planner.getByRole('spinbutton')).toHaveCount(1); // Duration only
+  await expect(planner.getByRole('spinbutton')).toHaveCount(0); // Duration is a badge or an optional stepper
   await expect(planner).not.toContainText(/\d+\s*%|\d+\s*km\/h/);
 });
 
 test('shows an accessible message when planning is unavailable', async ({ page }) => {
   const requests = await setup(page, [{ json: { outcome: 'planning_unavailable', reason: 'thresholds_not_defined' } }]);
-  await fillForm(page);
-  await findButton(page).click();
+  await planWithPico(page);
   await expect(result(page).getByRole('heading', { name: 'Activity planning is temporarily unavailable' })).toBeVisible();
   await expect(result(page)).toContainText('No time can be recommended right now.');
   await expect(result(page)).not.toContainText('Constraints used');
@@ -148,9 +136,12 @@ test('shows an accessible message when planning is unavailable', async ({ page }
 
 test('offers dates from today to six days ahead in the city zone', async ({ page }) => {
   await setup(page, [{ json: match }]);
-  const date = page.getByLabel('Date', { exact: true });
-  await expect(date).toHaveAttribute('min', '2027-06-14');
-  await expect(date).toHaveAttribute('max', '2027-06-20');
+  await waitForPlanner(page);
+  await reply(page, 'Hiking');
+  await reply(page, 'Laval');
+  await composer(page).getByRole('button', { name: 'Pick a date' }).click();
+  const enabled = page.getByRole('dialog', { name: 'June 2027' }).getByRole('button', { name: /June \d+$/ });
+  await expect(enabled).toHaveText(['14', '15', '16', '17', '18', '19', '20']);
 });
 
 test('shows server validation errors on the matching field', async ({ page }) => {
@@ -158,11 +149,9 @@ test('shows server validation errors on the matching field', async ({ page }) =>
     status: 400,
     json: { error: 'invalid_criteria', message: 'Choose a date within the forecast period.', fields: ['date'] },
   }]);
-  await fillForm(page);
-  await findButton(page).click();
-  const date = page.getByLabel('Date', { exact: true });
-  await expect(date).toHaveAttribute('aria-invalid', 'true');
-  await expect(date).toHaveAccessibleDescription('Choose a date from 2027-06-14 to 2027-06-20.');
+  await planWithPico(page);
+  await expect(pico(page)).toHaveText('One thing to fix first: the date. Choose a date from 2027-06-14 to 2027-06-20.');
+  await expect(composer(page).getByRole('button', { name: 'Tomorrow', exact: true })).toBeVisible();
   await expect(result(page)).toBeEmpty();
 });
 
@@ -171,8 +160,7 @@ test('shows an accessible retryable error when planning is unavailable', async (
     { status: 503, json: { error: 'weather_unavailable', message: 'Weather is temporarily unavailable. Try again.' } },
     { json: match },
   ]);
-  await fillForm(page);
-  await findButton(page).click();
+  await planWithPico(page);
   const alert = result(page).getByRole('alert');
   await expect(alert).toContainText('Weather is temporarily unavailable. Try again.');
   await alert.getByRole('button', { name: 'Retry' }).click();
@@ -191,8 +179,7 @@ test('shows a loading status while the plan is requested', async ({ page }) => {
     await route.fulfill({ json: match });
   });
   await page.goto('/');
-  await fillForm(page);
-  await findButton(page).click();
+  await planWithPico(page);
   await expect(result(page).getByRole('status')).toHaveText('Finding the best time in Laval, Québec…');
   release();
   await expect(result(page)).toContainText('Best time');
@@ -200,13 +187,14 @@ test('shows a loading status while the plan is requested', async ({ page }) => {
 
 test('never shows a result for a previously selected city', async ({ page }) => {
   await setup(page, [{ json: match }]);
-  await fillForm(page);
-  await findButton(page).click();
+  await planWithPico(page);
   await expect(result(page)).toContainText('Best time');
 
   await page.getByRole('combobox', { name: 'City' }).fill('Vanc');
   await page.getByRole('option', { name: /Vancouver/ }).click();
   await expect(result(page)).toBeEmpty();
   await expect(page.getByRole('heading', { name: 'Plan an activity' })).toBeVisible();
-  await expect(page.getByText('Find the best time in Vancouver, British Columbia')).toBeVisible();
+  await expect(page.getByText('Chat with Pico to find the best time in Vancouver, British Columbia')).toBeVisible();
+  // Nothing is sent for the new city until the visitor asks.
+  await expect(pico(page)).toHaveText('Ready when you are. Shall I check Vancouver, British Columbia?');
 });

@@ -1,0 +1,70 @@
+/**
+ * Interface text for the planning chat. English only for now; WEA-20 adds French by
+ * providing another object with the same shape and a language switch.
+ */
+export const messages = {
+  chat: {
+    heading: 'Plan an activity',
+    intro: (city: string) =>
+      `Chat with Pico to find the best time in ${city}. Precipitation and wind limits are set by the app and shown with the result.`,
+    conversation: 'Conversation with Pico',
+    answers: 'Your answer',
+    edit: 'Edit',
+    editAnswer: (answer: string) => `Edit your answer: ${answer}`,
+    you: 'You',
+    pico: 'Pico',
+    typeInstead: 'Type it instead',
+    useChoices: 'Back to the choices',
+    confirm: 'OK',
+  },
+  ask: {
+    activity: 'Hi, I’m Pico! What would you like to do?',
+    city: (activity: string) => `${activity} it is! Where are you heading?`,
+    when: 'When do you want to go out?',
+    dayWeekend: 'Here’s the weekend forecast. Which day suits you?',
+    dayNextWeek: (last: string) => `I can see the forecast up to ${last}. Which day suits you?`,
+    dayFlexible: 'Here’s the week ahead. Pick the day that suits you.',
+    duration: 'How long will you be out?',
+    ready: (city: string) => `Ready when you are. Shall I check ${city}?`,
+    checking: 'Let me check the hourly forecast…',
+    match: 'Here’s your plan!',
+    noMatch: 'No time that day stays within the limits. Try another day or a shorter duration.',
+    insufficient: 'The forecast doesn’t have enough to go on. You can try again.',
+    unavailable: 'Planning is paused right now, but the forecast is still there.',
+    error: 'I couldn’t get an answer this time. Use Retry to ask again.',
+    fix: (field: string, message: string) => `One thing to fix first: ${field}. ${message}`,
+    fixForm: 'Something needs another look.',
+  },
+  fields: { activity: 'the activity', date: 'the date', durationHours: 'the duration' },
+  activity: { hiking: 'Hiking', cycling: 'Cycling', walking: 'Walking' } as Record<string, string>,
+  when: {
+    today: 'Today',
+    tomorrow: 'Tomorrow',
+    after: 'Day after tomorrow',
+    weekend: 'This weekend',
+    'next-week': 'Next week',
+    flexible: 'I’m flexible',
+    pick: 'Pick a date',
+  },
+  city: { other: 'Other city' },
+  duration: (hours: number) => (hours === 1 ? '1 hour' : `${hours} hours`),
+  next: { another: 'Plan another activity', otherDay: 'Try another day', duration: 'Change duration', find: 'Find best time' },
+  picker: {
+    open: 'Pick a date',
+    dialog: 'Choose a date',
+    previous: 'Previous month',
+    next: 'Next month',
+    close: 'Close',
+    hint: 'Use the arrow keys to move, Enter to choose and Escape to close.',
+    unavailable: 'Outside the forecast',
+  },
+  durationInput: { label: 'Duration (hours)', less: 'One hour less', more: 'One hour more' },
+  activityInput: { label: 'Activity', placeholder: 'Choose an activity' },
+  card: {
+    planned: (activity: string) => `${activity} plan`,
+    window: 'Best window',
+    timeline: (from: string, to: string) => `Planned from ${from} to ${to}`,
+  },
+} as const;
+
+export type Messages = typeof messages;

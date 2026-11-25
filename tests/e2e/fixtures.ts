@@ -1,6 +1,35 @@
 // Synthetic /api/weather bodies for browser tests. CI never calls Open-Meteo.
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import type { CurrentConditions as Current, WeatherResponse } from '../../src/lib/weather/types';
+
+/**
+ * Waits until Pico's chat is hydrated. The date bounds come from the browser clock, so the
+ * chat is marked ready only once React runs; a click before that would be lost.
+ */
+export async function waitForPlanner(page: Page): Promise<void> {
+  await expect(page.getByRole('region', { name: 'Plan an activity' })).toHaveAttribute('data-ready', 'true');
+}
+
+/** The answer area under Pico's question. */
+export const composer = (page: Page) => page.getByRole('group', { name: 'Your answer' });
+
+/** Selects one of Pico's answer badges by its label (day badges also carry a forecast summary). */
+export async function reply(page: Page, label: string): Promise<void> {
+  const escaped = label.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&');
+  await composer(page).getByRole('button', { name: new RegExp('^' + escaped) }).first().click();
+}
+
+export type ChatAnswers = { activity?: string; city?: string; when?: string; day?: string; duration?: string };
+
+/** Answers Pico's questions with badges: by default hiking in Laval today for 2 hours. */
+export async function planWithPico(page: Page, answers: ChatAnswers = {}): Promise<void> {
+  await waitForPlanner(page);
+  await reply(page, answers.activity ?? 'Hiking');
+  await reply(page, answers.city ?? 'Laval');
+  await reply(page, answers.when ?? 'Today');
+  if (answers.day) await reply(page, answers.day);
+  await reply(page, answers.duration ?? '2 hours');
+}
 
 /** The pixel-art backdrop always requests Montréal's forecast once when the page loads. */
 export const BACKDROP_CITY_ID = 'montreal-qc';
