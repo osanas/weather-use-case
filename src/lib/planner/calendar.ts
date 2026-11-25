@@ -1,3 +1,4 @@
+import { INTL_LOCALE, type Locale } from '@/lib/i18n';
 import type { DateBounds } from './form';
 import { addCalendarDays } from './planner';
 
@@ -70,15 +71,15 @@ export function addMonths(date: string, months: number): string {
   return iso(y, m + months, Math.min(d, lastDay));
 }
 
-export const monthLabel = (date: string) => {
+export const monthLabel = (date: string, locale: Locale = 'en') => {
   const [y, m] = parts(date);
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC', month: 'long', year: 'numeric' })
+  return new Intl.DateTimeFormat(INTL_LOCALE[locale], { timeZone: 'UTC', month: 'long', year: 'numeric' })
     .format(Date.UTC(y, m - 1, 15, 12));
 };
 
-export const longDayLabel = (date: string) => {
+export const longDayLabel = (date: string, locale: Locale = 'en') => {
   const [y, m, d] = parts(date);
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' })
+  return new Intl.DateTimeFormat(INTL_LOCALE[locale], { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' })
     .format(Date.UTC(y, m - 1, d, 12));
 };
 

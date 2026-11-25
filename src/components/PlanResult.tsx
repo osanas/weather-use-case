@@ -3,45 +3,43 @@
 import type { ReactNode } from 'react';
 import type { City } from '@/lib/cities';
 import { formatDay, formatHour, formatPercent, formatWind } from '@/lib/format';
+import type { Locale, Messages } from '@/lib/i18n';
+import { errorText } from '@/lib/i18n/error-text';
 import type { PlanRequest } from '@/lib/planner/criteria';
 import { activityLabel, resultDate } from '@/lib/planner/conversation';
 import { addCalendarDays } from '@/lib/planner/planner';
-import type { PlanCriteria, PlanMode, PlanResponse } from '@/lib/planner/types';
+import type { PlanCriteria, PlanResponse } from '@/lib/planner/types';
+import { useLocale, useMessages } from './Language';
 import { useUnits } from './Units';
 
 type State =
   | { status: 'loading'; request: PlanRequest }
   | { status: 'done'; request: PlanRequest; data: PlanResponse }
-  | { status: 'error'; request: PlanRequest; message: string };
-
-const MODE_LABELS: Record<PlanMode, string> = {
-  agent: 'AI-assisted recommendation',
-  'rule-based': 'Rule-based recommendation',
-};
-
-const hours = (n: number) => `${n} ${n === 1 ? 'hour' : 'hours'}`;
+  | { status: 'error'; request: PlanRequest; message: string; code?: string };
 
 /** The searched period: one day, or the first to the last day of a flexible search. */
-function searchedPeriod(criteria: PlanCriteria): string {
-  if (criteria.days <= 1) return `${formatDay(criteria.date)} (${criteria.date})`;
+function searchedPeriod(criteria: PlanCriteria, locale: Locale, t: Messages): string {
+  if (criteria.days <= 1) return `${formatDay(criteria.date, locale)} (${criteria.date})`;
   const last = addCalendarDays(criteria.date, criteria.days - 1);
-  return `${formatDay(criteria.date)} to ${formatDay(last)} (${criteria.date} to ${last})`;
+  return `${t.result.range(formatDay(criteria.date, locale), formatDay(last, locale))} (${t.result.range(criteria.date, last)})`;
 }
 
 /** Effective constraints from the server response. The thresholds are read-only policy values. */
 function Constraints({ criteria, activityName }: { criteria: PlanCriteria; activityName?: string }) {
-  const profile = activityLabel(criteria.activity);
   const units = useUnits();
+  const locale = useLocale();
+  const t = useMessages();
+  const profile = activityLabel(criteria.activity, locale);
   return (
     <>
-      <h4>Constraints used</h4>
+      <h4>{t.result.constraints}</h4>
       <dl className="constraints">
-        <dt>Activity</dt>
-        <dd>{activityName && activityName !== profile ? `${activityName} (${profile} limits)` : profile}</dd>
-        <dt>{criteria.days > 1 ? 'Days searched' : 'Date'}</dt><dd>{searchedPeriod(criteria)}</dd>
-        <dt>Duration</dt><dd>{hours(criteria.durationHours)}</dd>
-        <dt>Maximum precipitation</dt><dd>{formatPercent(criteria.maxPrecipitationProbability)}</dd>
-        <dt>Maximum wind</dt><dd>{formatWind(criteria.maxWindKmh, units)}</dd>
+        <dt>{t.result.activity}</dt>
+        <dd>{activityName && activityName !== profile ? t.result.profileLimits(activityName, profile) : profile}</dd>
+        <dt>{criteria.days > 1 ? t.result.daysSearched : t.result.date}</dt><dd>{searchedPeriod(criteria, locale, t)}</dd>
+        <dt>{t.result.duration}</dt><dd>{t.duration(criteria.durationHours)}</dd>
+        <dt>{t.result.maxPrecipitation}</dt><dd>{formatPercent(criteria.maxPrecipitationProbability, locale)}</dd>
+        <dt>{t.result.maxWind}</dt><dd>{formatWind(criteria.maxWindKmh, units, locale)}</dd>
       </dl>
     </>
   );
@@ -58,8 +56,9 @@ export function PlanResult({ state, city, cityName, onRetry, compact = false, ac
   /** The visitor's typed activity name, shown in the browser only. */
   activityName?: string;
 }) {
+  const t = useMessages();
   return (
-    <div role="region" aria-label="Planning result" aria-live="polite" className="plan-result">
+    <div role="region" aria-label={t.result.region} aria-live="polite" className="plan-result">
       {state ? <Content state={state} city={city} cityName={cityName} onRetry={onRetry} compact={compact} activityName={activityName} /> : null}
     </div>
   );
@@ -69,18 +68,20 @@ function Content({ state, city, cityName, onRetry, compact, activityName }: {
   state: State; city: City; cityName: string; onRetry: () => void; compact: boolean; activityName?: string;
 }) {
   const units = useUnits();
+  const locale = useLocale();
+  const t = useMessages();
   const fold = (children: ReactNode) => compact
-    ? <details className="plan-details"><summary>How Pico chose this</summary>{children}</details>
+    ? <details className="plan-details"><summary>{t.result.how}</summary>{children}</details>
     : children;
   if (state.status === 'loading') {
-    return <p id="plan-loading" role="status">Finding the best time in {cityName}…</p>;
+    return <p id="plan-loading" role="status">{t.result.finding(cityName)}</p>;
   }
 
   if (state.status === 'error') {
     return (
       <div role="alert" className="error">
-        <p>{state.message}</p>
-        <button type="button" onClick={onRetry}>Retry</button>
+        <p>{errorText(t, state.code, 'plan')}</p>
+        <button type="button" onClick={onRetry}>{t.common.retry}</button>
       </div>
     );
   }
@@ -90,45 +91,41 @@ function Content({ state, city, cityName, onRetry, compact, activityName }: {
   if (data.outcome === 'planning_unavailable') {
     return (
       <>
-        <h3>Activity planning is temporarily unavailable</h3>
-        <p>
-          No time can be recommended right now. The forecast for {cityName} above is still available.
-        </p>
+        <h3>{t.result.unavailableTitle}</h3>
+        <p>{t.result.unavailableText(cityName)}</p>
       </>
     );
   }
 
   const { criteria } = data;
-  const day = formatDay(resultDate(data, city.timeZone));
-  const period = criteria.days > 1 ? `the next ${criteria.days} days` : day;
-  const mode = <p className="mode">{MODE_LABELS[data.mode]}</p>;
+  const day = formatDay(resultDate(data, city.timeZone), locale);
+  const period = criteria.days > 1 ? t.result.nextDays(criteria.days) : day;
+  const mode = <p className="mode">{t.result.mode[data.mode]}</p>;
 
   if (data.outcome === 'match') {
     return (
       <>
-        <h3>
-          Best time: {day}, {formatHour(data.start, city.timeZone)} to {formatHour(data.end, city.timeZone)}
-        </h3>
+        <h3>{t.result.bestTime(day, formatHour(data.start, city.timeZone, locale), formatHour(data.end, city.timeZone, locale))}</h3>
         {mode}
         <dl>
-          <dt>Highest precipitation probability</dt><dd>{formatPercent(data.maxPrecipitationProbability)}</dd>
-          <dt>Highest sustained wind</dt><dd>{formatWind(data.maxWindKmh, units)}</dd>
+          <dt>{t.result.highestPrecipitation}</dt><dd>{formatPercent(data.maxPrecipitationProbability, locale)}</dd>
+          <dt>{t.result.highestWind}</dt><dd>{formatWind(data.maxWindKmh, units, locale)}</dd>
         </dl>
         {fold(<>
         <p className="explanation">
           {/* Server-owned template filled from planner values; model text is never rendered. */}
-          Every hour stays within the {activityLabel(criteria.activity).toLowerCase()} limits of{' '}
-          {formatPercent(criteria.maxPrecipitationProbability)} precipitation chance and{' '}
-          {formatWind(criteria.maxWindKmh, units)} wind. Among the eligible {criteria.durationHours}-hour periods,
-          this one has the lowest precipitation chance ({formatPercent(data.maxPrecipitationProbability)}),
-          then the lightest wind ({formatWind(data.maxWindKmh, units)}), then the earliest start.
+          {t.result.explanation({
+            activity: activityLabel(criteria.activity, locale),
+            maxPrecipitation: formatPercent(criteria.maxPrecipitationProbability, locale),
+            maxWind: formatWind(criteria.maxWindKmh, units, locale),
+            hours: criteria.durationHours,
+            precipitation: formatPercent(data.maxPrecipitationProbability, locale),
+            wind: formatWind(data.maxWindKmh, units, locale),
+          })}
         </p>
         </>)}
         <Constraints criteria={criteria} activityName={activityName} />
-        <p className="note">
-          Based on the Open-Meteo forecast for {cityName}. Forecast conditions can change, so check again
-          before you go.
-        </p>
+        <p className="note">{t.result.basedOn(cityName)}</p>
       </>
     );
   }
@@ -136,12 +133,9 @@ function Content({ state, city, cityName, onRetry, compact, activityName }: {
   if (data.outcome === 'no_match') {
     return (
       <>
-        <h3>No time meets these limits</h3>
+        <h3>{t.result.noMatchTitle}</h3>
         {mode}
-        <p>
-          No {criteria.durationHours}-hour period {criteria.days > 1 ? 'in' : 'on'} {period} in {cityName} stays within
-          the precipitation and wind limits for every hour. Try another date or a shorter duration.
-        </p>
+        <p>{t.result.noMatchText({ hours: criteria.durationHours, city: cityName, day, days: criteria.days })}</p>
         <Constraints criteria={criteria} activityName={activityName} />
       </>
     );
@@ -149,14 +143,10 @@ function Content({ state, city, cityName, onRetry, compact, activityName }: {
 
   return (
     <>
-      <h3>Forecast insufficient</h3>
+      <h3>{t.result.insufficientTitle}</h3>
       {mode}
-      <p>
-        {data.reason === 'stale'
-          ? 'The forecast is out of date, so a reliable time cannot be recommended.'
-          : `The forecast for ${period} in ${cityName} is missing readings, so a reliable time cannot be recommended.`}
-      </p>
-      <button type="button" onClick={onRetry}>Try again</button>
+      <p>{data.reason === 'stale' ? t.result.stale : t.result.missing(period, cityName)}</p>
+      <button type="button" onClick={onRetry}>{t.common.tryAgain}</button>
       <Constraints criteria={criteria} activityName={activityName} />
     </>
   );

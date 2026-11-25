@@ -9,7 +9,8 @@ export const FALLBACK_ERROR = 'Weather is temporarily unavailable. Try again.';
 
 export type LoadResult =
   | { ok: true; data: WeatherResponse }
-  | { ok: false; message: string };
+  /** `code` is the server's `error` field, used to localise the message. */
+  | { ok: false; message: string; code?: string };
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -86,7 +87,8 @@ export async function loadForecast(
     const body: unknown = await response.json().catch(() => null);
     if (!response.ok) {
       const message = isObj(body) && typeof body.message === 'string' ? body.message : FALLBACK_ERROR;
-      return { ok: false, message };
+      const code = isObj(body) && typeof body.error === 'string' ? body.error : undefined;
+      return { ok: false, message, ...(code ? { code } : {}) };
     }
     const data = toWeatherResponse(body, cityId);
     return data ? { ok: true, data } : { ok: false, message: FALLBACK_ERROR };

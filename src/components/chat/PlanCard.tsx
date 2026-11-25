@@ -1,10 +1,10 @@
 import { describeWeatherCode, formatHour, formatTemperature } from '@/lib/format';
-import { messages as t } from '@/lib/i18n/messages';
 import { relativeDay, resultDate } from '@/lib/planner/conversation';
 import type { DateBounds } from '@/lib/planner/form';
 import type { PlanResponse } from '@/lib/planner/types';
 import type { DailySummary } from '@/lib/weather/types';
 import { useUnits } from '../Units';
+import { useLocale, useMessages } from '../Language';
 
 type Match = Extract<PlanResponse, { outcome: 'match' }>;
 
@@ -30,22 +30,24 @@ export function PlanCard({ data, name, timeZone, bounds, day }: {
   day: DailySummary | undefined;
 }) {
   const units = useUnits();
+  const locale = useLocale();
+  const t = useMessages();
   const from = localHour(data.start, timeZone);
   const to = localHour(data.end, timeZone, true);
   return (
     <div className="plan-card" aria-hidden="true">
       <div className="plan-card-head">
         <span className="plan-card-dot" />
-        <span className="plan-card-day">{relativeDay(resultDate(data, timeZone), bounds)}</span>
+        <span className="plan-card-day">{relativeDay(resultDate(data, timeZone), bounds, locale)}</span>
         <span className="plan-card-activity">{name}</span>
         {day ? (
           <span className="plan-card-weather">
-            {describeWeatherCode(day.weatherCode)} · {formatTemperature(day.maxC, units)}
+            {describeWeatherCode(day.weatherCode, locale)} · {formatTemperature(day.maxC, units, locale)}
           </span>
         ) : null}
       </div>
       <div className="plan-card-window">
-        <span>{formatHour(data.start, timeZone)} – {formatHour(data.end, timeZone)}</span>
+        <span>{formatHour(data.start, timeZone, locale)} – {formatHour(data.end, timeZone, locale)}</span>
         <span className="plan-card-label">{t.card.window}</span>
       </div>
       <div className="plan-strip">

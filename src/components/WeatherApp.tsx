@@ -9,6 +9,7 @@ import { DayPlans, PlanTray } from './board/PlanChips';
 import { PlanningChat } from './chat/PlanningChat';
 import { CitySelector } from './CitySelector';
 import { CurrentPanel } from './ForecastView';
+import { useLocale } from './Language';
 import { WeatherWidget, type WeatherOverlay } from './WeatherWidget';
 
 type Board = { plans: BoardPlan[]; activeId: string | null };
@@ -31,6 +32,7 @@ export function WeatherApp({
   cities: readonly City[];
   defaultCity: City;
 }) {
+  const locale = useLocale();
   const [selectedId, setSelectedId] = useState(defaultCity.id);
   // Featured cities plus every catalogue city chosen on this page, so plans can find theirs again.
   const [chosen, setChosen] = useState<readonly City[]>(() => [defaultCity]);
@@ -102,7 +104,7 @@ export function WeatherApp({
   const unplaced = cityPlans.filter(p => !p.date || !shownDates.has(p.date));
 
   if (!city) return null;
-  const cityName = cityDisplayName(city);
+  const cityName = cityDisplayName(city, locale);
   const fresh = forecast.state.status === 'ready' && !isExpired(forecast.state.data.fetchedAt, forecast.now)
     ? forecast.state.data
     : null;

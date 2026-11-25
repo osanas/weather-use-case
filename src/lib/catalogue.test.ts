@@ -65,7 +65,7 @@ describe('the committed catalogue', () => {
 });
 
 describe('searchCities on the full catalogue', () => {
-  const top = (q: string, n = 3) => searchCities(q, CATALOGUE, n).map(cityDisplayName);
+  const top = (q: string, n = 3) => searchCities(q, CATALOGUE, n).map(c => cityDisplayName(c));
 
   it('ranks prefix matches by population and caps the results', () => {
     expect(top('springf', 8)).toHaveLength(8);

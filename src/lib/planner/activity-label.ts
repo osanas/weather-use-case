@@ -13,18 +13,20 @@ export const ACTIVITY_LABEL_MAX = 40;
 const ALLOWED = /^[\p{L}\p{M}\p{N} '’\-.&]+$/u;
 const HAS_LETTER = /\p{L}/u;
 
-export type ActivityLabelResult = { ok: true; label: string } | { ok: false; message: string };
+/** `reason` selects the localised message; `message` is the English one. */
+export type ActivityLabelError = 'short' | 'long' | 'characters';
+export type ActivityLabelResult = { ok: true; label: string } | { ok: false; reason: ActivityLabelError; message: string };
 
 export function parseActivityLabel(raw: string): ActivityLabelResult {
   const label = raw.normalize('NFC').replace(/\s+/gu, ' ').trim();
   if (label.length < ACTIVITY_LABEL_MIN) {
-    return { ok: false, message: `Type at least ${ACTIVITY_LABEL_MIN} characters.` };
+    return { ok: false, reason: 'short', message: `Type at least ${ACTIVITY_LABEL_MIN} characters.` };
   }
   if (label.length > ACTIVITY_LABEL_MAX) {
-    return { ok: false, message: `Keep it to ${ACTIVITY_LABEL_MAX} characters or fewer.` };
+    return { ok: false, reason: 'long', message: `Keep it to ${ACTIVITY_LABEL_MAX} characters or fewer.` };
   }
   if (!ALLOWED.test(label) || !HAS_LETTER.test(label)) {
-    return { ok: false, message: 'Use letters, numbers, spaces and simple punctuation only.' };
+    return { ok: false, reason: 'characters', message: 'Use letters, numbers, spaces and simple punctuation only.' };
   }
   return { ok: true, label };
 }

@@ -13,7 +13,7 @@ import type { PlanResponse } from './types';
 export type PlannerRequest =
   | { status: 'loading'; cityId: string; request: PlanRequest }
   | { status: 'done'; cityId: string; request: PlanRequest; data: PlanResponse }
-  | { status: 'error'; cityId: string; request: PlanRequest; message: string };
+  | { status: 'error'; cityId: string; request: PlanRequest; message: string; code?: string };
 
 // Minute-resolution clock for the date bounds. `null` while rendering on the server, so
 // the static page never bakes in a build-time date.
@@ -62,7 +62,7 @@ export function usePlanner(city: City) {
       setErrors(Object.keys(serverErrors).length > 0 ? serverErrors : { form: result.message });
       setRequest(null);
     } else {
-      setRequest({ status: 'error', cityId, request: planRequest, message: result.message });
+      setRequest({ status: 'error', cityId, request: planRequest, message: result.message, code: result.code });
     }
   }, [bounds]);
 

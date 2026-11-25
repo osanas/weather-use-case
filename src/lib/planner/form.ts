@@ -1,4 +1,5 @@
 import { localDateString } from '@/lib/forecast';
+import { getMessages, type Locale } from '@/lib/i18n';
 import { FORECAST_DAYS } from '@/lib/weather/open-meteo';
 import { parsePlanRequest, type PlanRequest } from './criteria';
 import { addCalendarDays } from './planner';
@@ -23,15 +24,14 @@ export function planDateBounds(now: number, timeZone: string): DateBounds {
   return { min, max: addCalendarDays(min, FORECAST_DAYS - 1) };
 }
 
-export function fieldMessage(field: string, bounds?: DateBounds): string {
+export function fieldMessage(field: string, bounds?: DateBounds, locale: Locale = 'en'): string {
+  const { validation, errors } = getMessages(locale);
   switch (field) {
-    case 'cityId': return 'Choose a city from the list.';
-    case 'activity': return 'Choose an activity.';
-    case 'date': return bounds
-      ? `Choose a date from ${bounds.min} to ${bounds.max}.`
-      : 'Choose a date within the forecast period.';
-    case 'durationHours': return 'Enter a whole number of hours from 1 to 4.';
-    default: return 'Check the planning criteria and try again.';
+    case 'cityId': return validation.cityId;
+    case 'activity': return validation.activity;
+    case 'date': return bounds ? validation.dateRange(bounds.min, bounds.max) : validation.date;
+    case 'durationHours': return validation.durationHours;
+    default: return errors.criteria;
   }
 }
 

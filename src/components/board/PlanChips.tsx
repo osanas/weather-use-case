@@ -1,24 +1,25 @@
 'use client';
 
 import { formatHour } from '@/lib/format';
-import { messages as t } from '@/lib/i18n/messages';
+import { INTL_LOCALE, type Locale, type Messages } from '@/lib/i18n';
 import type { BoardPlan } from '@/lib/planner/board';
 import { longDayLabel } from '@/lib/planner/calendar';
 import { activityName } from '@/lib/planner/conversation';
+import { useLocale, useMessages } from '../Language';
 import './board.css';
 
 const failed = (p: BoardPlan) => p.status === 'insufficient' || p.status === 'unavailable' || p.status === 'error';
 
 /** "11:00" in the city's zone; the zone name stays in the accessible name. */
-const shortHour = (iso: string, timeZone: string) =>
-  new Intl.DateTimeFormat('en-CA', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone }).format(Date.parse(iso));
+const shortHour = (iso: string, timeZone: string, locale: Locale) =>
+  new Intl.DateTimeFormat(INTL_LOCALE[locale], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone }).format(Date.parse(iso));
 
 /** Visible summary of a plan, from its answers and the planner's outcome only. */
-function chipDetail(plan: BoardPlan, timeZone: string, short: boolean): string {
+function chipDetail(plan: BoardPlan, timeZone: string, short: boolean, locale: Locale, t: Messages): string {
   if (plan.status === 'match' && plan.start && plan.end) {
     return short
-      ? `${shortHour(plan.start, timeZone)}–${shortHour(plan.end, timeZone)}`
-      : `${formatHour(plan.start, timeZone)} – ${formatHour(plan.end, timeZone)}`;
+      ? `${shortHour(plan.start, timeZone, locale)}–${shortHour(plan.end, timeZone, locale)}`
+      : `${formatHour(plan.start, timeZone, locale)} – ${formatHour(plan.end, timeZone, locale)}`;
   }
   if (plan.status === 'no_match') return t.board.status.no_match;
   if (failed(plan)) return t.board.status.failed;
@@ -26,11 +27,11 @@ function chipDetail(plan: BoardPlan, timeZone: string, short: boolean): string {
   return hours + (plan.status === 'checking' ? t.board.status.checking : t.board.status.draft);
 }
 
-function planLabel(plan: BoardPlan, timeZone: string): string {
-  const parts = [activityName(plan.answers), plan.date ? longDayLabel(plan.date) : t.board.unscheduledDay];
+function planLabel(plan: BoardPlan, timeZone: string, locale: Locale, t: Messages): string {
+  const parts = [activityName(plan.answers, locale), plan.date ? longDayLabel(plan.date, locale) : t.board.unscheduledDay];
   if (plan.durationHours) parts.push(t.duration(plan.durationHours));
   if (plan.status === 'match' && plan.start && plan.end) {
-    parts.push(t.board.label.match(formatHour(plan.start, timeZone), formatHour(plan.end, timeZone)));
+    parts.push(t.board.label.match(formatHour(plan.start, timeZone, locale), formatHour(plan.end, timeZone, locale)));
   } else if (plan.status === 'no_match') parts.push(t.board.label.no_match);
   else if (failed(plan)) parts.push(t.board.label.failed);
   else parts.push(plan.status === 'checking' ? t.board.label.checking : t.board.label.draft);
@@ -41,16 +42,18 @@ type ChipProps = { plan: BoardPlan; timeZone: string; active: boolean; onOpen: (
 
 /** One plan as a button: selecting it reopens the plan in the chat without sending a request. */
 export function PlanChip({ plan, timeZone, active, onOpen, short = false }: ChipProps) {
+  const locale = useLocale();
+  const t = useMessages();
   return (
     <button
       type="button"
       className={`board-plan board-plan-${failed(plan) ? 'failed' : plan.status}`}
       aria-current={active ? 'true' : undefined}
-      aria-label={planLabel(plan, timeZone)}
+      aria-label={planLabel(plan, timeZone, locale, t)}
       onClick={() => onOpen(plan)}
     >
-      <span className="board-plan-activity">{activityName(plan.answers)}</span>
-      <span className="board-plan-detail">{chipDetail(plan, timeZone, short)}</span>
+      <span className="board-plan-activity">{activityName(plan.answers, locale)}</span>
+      <span className="board-plan-detail">{chipDetail(plan, timeZone, short, locale, t)}</span>
       {plan.status === 'checking' ? <span className="board-dots" aria-hidden="true"><i /><i /><i /></span> : null}
     </button>
   );
@@ -60,6 +63,7 @@ export function PlanChip({ plan, timeZone, active, onOpen, short = false }: Chip
 export function DayPlans({ plans, timeZone, activeId, onOpen }: {
   plans: readonly BoardPlan[]; timeZone: string; activeId: string | null; onOpen: (p: BoardPlan) => void;
 }) {
+  const t = useMessages();
   return (
     <ul className="day-plans" aria-label={t.board.dayPlans}>
       {plans.map(p => (
@@ -76,6 +80,7 @@ export function DayPlans({ plans, timeZone, activeId, onOpen }: {
 export function PlanTray({ plans, timeZone, activeId, onOpen }: {
   plans: readonly BoardPlan[]; timeZone: string; activeId: string | null; onOpen: (p: BoardPlan) => void;
 }) {
+  const t = useMessages();
   if (plans.length === 0) return null;
   return (
     <section className="card board-tray" aria-labelledby="plan-tray-heading">

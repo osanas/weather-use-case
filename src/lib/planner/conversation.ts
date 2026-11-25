@@ -1,11 +1,11 @@
 import { localDateString } from '@/lib/forecast';
 import { describeWeatherCode, formatDay, formatPercent, formatTemperature } from '@/lib/format';
-import { messages as t } from '@/lib/i18n/messages';
+import { getMessages, type Locale, type Messages } from '@/lib/i18n';
 import type { Units } from '@/lib/units';
 import type { DailySummary } from '@/lib/weather/types';
 import { datesIn, inBounds, nextWeekDates, weekendDates } from './calendar';
 import { MAX_SEARCH_DAYS, type PlanRequest } from './criteria';
-import { FORM_FIELDS, type DateBounds, type FormField, type PlanFormErrors, type PlanFormValues } from './form';
+import { fieldMessage, FORM_FIELDS, type DateBounds, type FormField, type PlanFormErrors, type PlanFormValues } from './form';
 import { addCalendarDays } from './planner';
 import { ACTIVITIES, type PlanResponse, type PlanResult } from './types';
 
@@ -88,6 +88,8 @@ export type ChatState = {
   answers: Answers;
   /** Display units for the day summaries; metric when omitted. */
   units?: Units;
+  /** Interface language; English when omitted. */
+  locale?: Locale;
   cityName: string;
   /** Catalogue cities offered as quick choices, the selected one first. */
   cityChoices: readonly { id: string; label: string }[];
@@ -98,19 +100,21 @@ export type ChatState = {
   request: ChatRequest | null;
 };
 
-export const activityLabel = (activity: string) => t.activity[activity] ?? activity;
+export const activityLabel = (activity: string, locale: Locale = 'en') =>
+  getMessages(locale).activity[activity] ?? activity;
 
 /** The activity as the visitor knows it: their typed name for `other`, else the profile's. */
-export const activityName = (answers: Pick<Answers, 'activity' | 'label'>) =>
-  answers.activity === 'other' && answers.label ? answers.label : activityLabel(answers.activity);
+export const activityName = (answers: Pick<Answers, 'activity' | 'label'>, locale: Locale = 'en') =>
+  answers.activity === 'other' && answers.label ? answers.label : activityLabel(answers.activity, locale);
 
 /** Profiles offered as badges; `other` is reached by typing a name. */
 export const ACTIVITY_CHOICES = ACTIVITIES.filter(a => a !== 'other');
 
-export function relativeDay(date: string, bounds: DateBounds | null): string {
-  if (bounds && date === bounds.min) return 'Today';
-  if (bounds && date === addCalendarDays(bounds.min, 1)) return 'Tomorrow';
-  return formatDay(date);
+export function relativeDay(date: string, bounds: DateBounds | null, locale: Locale = 'en'): string {
+  const { common } = getMessages(locale);
+  if (bounds && date === bounds.min) return common.today;
+  if (bounds && date === addCalendarDays(bounds.min, 1)) return common.tomorrow;
+  return formatDay(date, locale);
 }
 
 /**
@@ -180,36 +184,38 @@ export function matchesAnswers(request: PlanRequest, answers: Answers): boolean 
     && String(request.durationHours) === answers.duration.trim();
 }
 
-function dayDetail(date: string, days: readonly DailySummary[] | null, units: Units = 'metric'): string | undefined {
+function dayDetail(date: string, days: readonly DailySummary[] | null, units: Units = 'metric', locale: Locale = 'en'): string | undefined {
   const day = days?.find(d => d.date === date);
   if (!day) return undefined;
-  return [describeWeatherCode(day.weatherCode), formatTemperature(day.maxC, units), `${formatPercent(day.precipitationProbability)} rain`]
+  return [describeWeatherCode(day.weatherCode, locale), formatTemperature(day.maxC, units, locale), getMessages(locale).rain(formatPercent(day.precipitationProbability, locale))]
     .join(' · ');
 }
 
-function dayQuestion(when: When | null, bounds: DateBounds | null): string {
-  if (when === 'next-week') return t.ask.dayNextWeek(bounds ? formatDay(bounds.max) : 'the end of the week');
+function dayQuestion(when: When | null, bounds: DateBounds | null, locale: Locale): string {
+  const t = getMessages(locale);
+  if (when === 'next-week') return t.ask.dayNextWeek(bounds ? formatDay(bounds.max, locale) : t.ask.endOfWeek);
   return t.ask.dayWeekend;
 }
 
-function whenAnswer(answers: Answers, bounds: DateBounds | null): string {
-  if (answers.when === 'pick' || answers.when === null) return relativeDay(answers.date, bounds);
-  return t.when[answers.when];
+function whenAnswer(answers: Answers, bounds: DateBounds | null, locale: Locale): string {
+  if (answers.when === 'pick' || answers.when === null) return relativeDay(answers.date, bounds, locale);
+  return getMessages(locale).when[answers.when];
 }
 
 function turnsFor(state: ChatState): Turn[] {
-  const { answers, bounds, cityName } = state;
+  const { answers, bounds, cityName, locale = 'en' } = state;
+  const t = getMessages(locale);
   const turns: Turn[] = [];
   if (!answers.when && !answers.date) return turns;
-  turns.push({ key: 'when', question: t.ask.when, answer: whenAnswer(answers, bounds) });
+  turns.push({ key: 'when', question: t.ask.when, answer: whenAnswer(answers, bounds, locale) });
   if (isMultiDay(answers.when)) {
     if (!answers.date) return turns;
-    turns.push({ key: 'day', question: dayQuestion(answers.when, bounds), answer: relativeDay(answers.date, bounds) });
+    turns.push({ key: 'day', question: dayQuestion(answers.when, bounds, locale), answer: relativeDay(answers.date, bounds, locale) });
   }
   if (!answers.activity) return turns;
-  turns.push({ key: 'activity', question: t.ask.activity, answer: activityName(answers) });
+  turns.push({ key: 'activity', question: t.ask.activity, answer: activityName(answers, locale) });
   if (!answers.city) return turns;
-  turns.push({ key: 'city', question: t.ask.city(activityName(answers)), answer: cityName });
+  turns.push({ key: 'city', question: t.ask.city(activityName(answers, locale)), answer: cityName });
   if (!answers.duration.trim()) return turns;
   const hours = Number(answers.duration);
   turns.push({
@@ -230,7 +236,7 @@ function turnsBefore(turns: Turn[], key: TurnKey): Turn[] {
 
 const WHEN_ORDER: readonly When[] = ['today', 'tomorrow', 'after', 'weekend', 'next-week', 'flexible'];
 
-function whenChoices(bounds: DateBounds | null): Choice[] {
+function whenChoices(bounds: DateBounds | null, t: Messages): Choice[] {
   if (!bounds) return [];
   return WHEN_ORDER.flatMap<Choice>(when => {
     if (isMultiDay(when)) {
@@ -241,14 +247,14 @@ function whenChoices(bounds: DateBounds | null): Choice[] {
   });
 }
 
-const NEXT_CHOICES: Choice[] = [
+const nextChoices = (t: Messages): Choice[] => [
   { id: 'next-another', label: t.next.another, answer: { activity: '', label: '', when: null, date: '', duration: '' } },
   { id: 'next-day', label: t.next.otherDay, answer: { when: null, date: '' } },
   { id: 'next-duration', label: t.next.duration, answer: { duration: '' } },
 ];
 
-function resultView(request: ChatRequest): Omit<ChatView, 'turns'> {
-  const view = (step: ChatStep, prompt: string, mood: GuideMood, choices: Choice[] = NEXT_CHOICES) =>
+function resultView(request: ChatRequest, t: Messages): Omit<ChatView, 'turns'> {
+  const view = (step: ChatStep, prompt: string, mood: GuideMood, choices: Choice[] = nextChoices(t)) =>
     ({ step, prompt, mood, announce: false, choices, input: null });
   if (request.status === 'loading') return view('checking', t.ask.checking, 'thinking', []);
   if (request.status === 'error') return view('error', t.ask.error, 'unsure', []);
@@ -262,7 +268,8 @@ function resultView(request: ChatRequest): Omit<ChatView, 'turns'> {
 
 /** The conversation for the current answers and request. Pure, so it can be tested directly. */
 export function chatView(state: ChatState): ChatView {
-  const { answers, bounds, errors, request } = state;
+  const { answers, bounds, errors, request, locale = 'en' } = state;
+  const t = getMessages(locale);
   const turns = turnsFor(state);
 
   const fieldError = FORM_FIELDS.find(field => errors[field]);
@@ -275,23 +282,26 @@ export function chatView(state: ChatState): ChatView {
       step: 'fix',
       mood: 'unsure',
       announce: false,
-      prompt: t.ask.fix(t.fields[fieldError as FormField], errors[fieldError] ?? ''),
+      // Stored errors are English; other languages rebuild the message for the same field.
+      prompt: t.ask.fix(t.fields[fieldError as FormField],
+        locale === 'en' ? errors[fieldError] ?? '' : fieldMessage(fieldError, bounds ?? undefined, locale)),
     };
   }
   if (errors.cityId || errors.form) {
-    return { turns, step: 'fix', prompt: `${t.ask.fixForm} ${errors.cityId ?? errors.form}`, mood: 'unsure', announce: false, choices: NEXT_CHOICES, input: null };
+    const message = locale === 'en' ? errors.cityId ?? errors.form : fieldMessage(errors.cityId ? 'cityId' : 'form', undefined, locale);
+    return { turns, step: 'fix', prompt: `${t.ask.fixForm} ${message}`, mood: 'unsure', announce: false, choices: nextChoices(t), input: null };
   }
-  if (request?.status === 'loading') return { turns, ...resultView(request) };
+  if (request?.status === 'loading') return { turns, ...resultView(request, t) };
 
   if (!answers.date && !isMultiDay(answers.when)) {
-    return { turns, ...ask('when', t.ask.when, whenChoices(bounds), 'date') };
+    return { turns, ...ask('when', t.ask.when, whenChoices(bounds, t), 'date') };
   }
   if (!answers.date) {
     const dates = bounds && answers.when ? datesForWhen(answers.when, bounds) : [];
     return {
       turns,
-      ...ask('day', dayQuestion(answers.when, bounds), dates.map(date => ({
-        id: `day-${date}`, label: relativeDay(date, bounds), detail: dayDetail(date, state.days, state.units), answer: { date },
+      ...ask('day', dayQuestion(answers.when, bounds, locale), dates.map(date => ({
+        id: `day-${date}`, label: relativeDay(date, bounds, locale), detail: dayDetail(date, state.days, state.units, locale), answer: { date },
       })), 'date'),
     };
   }
@@ -299,13 +309,13 @@ export function chatView(state: ChatState): ChatView {
     return {
       turns,
       ...ask('activity', t.ask.activity,
-        ACTIVITY_CHOICES.map(a => ({ id: `activity-${a}`, label: activityLabel(a), answer: { activity: a, label: '' } })), 'activity'),
+        ACTIVITY_CHOICES.map(a => ({ id: `activity-${a}`, label: activityLabel(a, locale), answer: { activity: a, label: '' } })), 'activity'),
     };
   }
   if (!answers.city) {
     return {
       turns,
-      ...ask('city', t.ask.city(activityName(answers)), [
+      ...ask('city', t.ask.city(activityName(answers, locale)), [
         ...state.cityChoices.map(c => ({ id: `city-${c.id}`, label: c.label, cityId: c.id, answer: { city: true } })),
         { id: 'city-other', label: t.city.other, opens: 'city' as const },
       ]),
@@ -318,7 +328,7 @@ export function chatView(state: ChatState): ChatView {
         [1, 2, 3, 4].map(h => ({ id: `duration-${h}`, label: t.duration(h), answer: { duration: String(h) } })), 'duration'),
     };
   }
-  if (request && matchesAnswers(request.request, answers)) return { turns, ...resultView(request) };
+  if (request && matchesAnswers(request.request, answers)) return { turns, ...resultView(request, t) };
   return {
     turns,
     step: 'ready', prompt: answers.when === 'flexible' ? t.ask.readyFlexible(state.cityName) : t.ask.ready(state.cityName), mood: 'happy', announce: true, input: null,

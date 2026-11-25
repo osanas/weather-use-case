@@ -14,6 +14,8 @@ export const PRIVACY_SETTINGS = {
   aiProvider: 'Groq',
   /** Data retention setting of that provider for the production API key. */
   aiRetention: "Groq's default account settings, not changed for this demo (see console.groq.com/docs/your-data)",
+  /** The same retention fact in French; update both together. */
+  aiRetentionFr: 'réglages de compte par défaut de Groq, non modifiés pour cette démo (voir console.groq.com/docs/your-data)',
   /** Date this notice was last checked against the deployment, YYYY-MM-DD. */
   lastReviewed: '2026-11-24',
 } as const;

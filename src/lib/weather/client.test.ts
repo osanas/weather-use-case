@@ -56,7 +56,8 @@ describe('loadForecast', () => {
 
   it('shows the server-provided safe message on an error status', async () => {
     const fetchImpl = async () => json({ error: 'weather_unavailable', message: 'Try again later.' }, 503);
-    expect(await loadForecast('laval-qc', undefined, fetchImpl)).toEqual({ ok: false, message: 'Try again later.' });
+    expect(await loadForecast('laval-qc', undefined, fetchImpl))
+      .toEqual({ ok: false, message: 'Try again later.', code: 'weather_unavailable' });
   });
 
   it('falls back to the safe message for non-JSON, malformed or network failures', async () => {
