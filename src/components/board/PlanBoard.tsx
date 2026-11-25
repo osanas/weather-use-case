@@ -5,7 +5,7 @@ import { describeWeatherCode, formatHour, formatPercent, formatTemperature } fro
 import { messages as t } from '@/lib/i18n/messages';
 import { hoursOfDay, inWindow, localHour, type BoardPlan } from '@/lib/planner/board';
 import { datesIn, longDayLabel } from '@/lib/planner/calendar';
-import { activityLabel, relativeDay } from '@/lib/planner/conversation';
+import { activityName, relativeDay } from '@/lib/planner/conversation';
 import type { DateBounds } from '@/lib/planner/form';
 import type { DailySummary, HourlyPoint } from '@/lib/weather/types';
 import './board.css';
@@ -41,7 +41,7 @@ function chipDetail(plan: BoardPlan, timeZone: string): string {
 }
 
 function planLabel(plan: BoardPlan, timeZone: string): string {
-  const parts = [activityLabel(plan.activity), plan.date ? longDayLabel(plan.date) : t.board.unscheduledDay];
+  const parts = [activityName(plan.answers), plan.date ? longDayLabel(plan.date) : t.board.unscheduledDay];
   if (plan.durationHours) parts.push(t.duration(plan.durationHours));
   if (plan.status === 'match' && plan.start && plan.end) {
     parts.push(t.board.label.match(formatHour(plan.start, timeZone), formatHour(plan.end, timeZone)));
@@ -60,7 +60,7 @@ function PlanChip({ plan, timeZone, active, onOpen }: { plan: BoardPlan; timeZon
       aria-label={planLabel(plan, timeZone)}
       onClick={() => onOpen(plan)}
     >
-      <span className="board-plan-activity">{activityLabel(plan.activity)}</span>
+      <span className="board-plan-activity">{activityName(plan.answers)}</span>
       <span className="board-plan-detail">{chipDetail(plan, timeZone)}</span>
       {plan.status === 'checking' ? <span className="board-dots" aria-hidden="true"><i /><i /><i /></span> : null}
     </button>

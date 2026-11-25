@@ -1,6 +1,10 @@
 import type { ProviderForecast } from '@/lib/weather/types';
 
-export const ACTIVITIES = ['hiking', 'cycling', 'walking'] as const;
+/**
+ * Planning profiles, in the order Pico offers them. `other` is the profile for an activity the
+ * visitor types: the typed name stays in the browser and only `other` is sent.
+ */
+export const ACTIVITIES = ['walking', 'errands', 'hiking', 'cycling', 'other'] as const;
 export type Activity = (typeof ACTIVITIES)[number];
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  chatView, clearAnswer, datesForWhen, isComplete, NO_ANSWERS,
+  activityName, answersToValues, chatView, clearAnswer, datesForWhen, isComplete, NO_ANSWERS,
   type Answers, type ChatRequest, type ChatState,
 } from './conversation';
 import type { PlanRequest } from './criteria';
@@ -10,7 +10,7 @@ import type { PlanCriteria, PlanResponse } from './types';
 const bounds = { min: '2027-06-14', max: '2027-06-20' };
 const request: PlanRequest = { cityId: 'laval-qc', activity: 'hiking', date: '2027-06-19', durationHours: 2 };
 const criteria: PlanCriteria = { ...request, maxPrecipitationProbability: 35, maxWindKmh: 28 };
-const full: Answers = { activity: 'hiking', city: true, when: 'weekend', date: '2027-06-19', duration: '2' };
+const full: Answers = { activity: 'hiking', label: '', city: true, when: 'weekend', date: '2027-06-19', duration: '2' };
 
 const state = (answers: Partial<Answers> = {}, overrides: Partial<ChatState> = {}): ChatState => ({
   answers: { ...NO_ANSWERS, ...answers },
@@ -41,7 +41,7 @@ describe('chatView', () => {
 
     const activity = chatView(state({ when: 'weekend', date: '2027-06-19' }));
     expect(activity).toMatchObject({ step: 'activity', input: 'activity' });
-    expect(activity.choices.map(c => c.label)).toEqual(['Hiking', 'Cycling', 'Walking']);
+    expect(activity.choices.map(c => c.label)).toEqual(['Walking', 'Errands', 'Hiking', 'Cycling']);
     expect(activity.turns.map(t => [t.key, t.answer])).toEqual([['when', 'This weekend'], ['day', 'Sat, Jun 19']]);
 
     const city = chatView(state({ when: 'weekend', date: '2027-06-19', activity: 'hiking' }));
@@ -157,5 +157,25 @@ describe('answers', () => {
     expect(clearAnswer(full, 'city')).toEqual({ ...full, city: false });
     expect(isComplete(full)).toBe(true);
     expect(isComplete({ ...full, duration: ' ' })).toBe(false);
+  });
+});
+
+describe('typed activity', () => {
+  const typed: Partial<Answers> = { when: 'weekend', date: '2027-06-19', activity: 'other', label: 'Walk the dog' };
+
+  it('shows the typed name in the conversation but sends only the other profile', () => {
+    const city = chatView(state(typed));
+    expect(city.prompt).toBe('Walk the dog it is! Where are you heading?');
+    expect(city.turns.at(-1)).toMatchObject({ key: 'activity', answer: 'Walk the dog' });
+    expect(answersToValues({ ...NO_ANSWERS, ...typed, city: true, duration: '2' }))
+      .toEqual({ activity: 'other', date: '2027-06-19', durationHours: '2' });
+  });
+
+  it('never offers other as a badge and clears the name with the activity', () => {
+    const activity = chatView(state({ when: 'weekend', date: '2027-06-19' }));
+    expect(activity.choices.map(c => c.id)).not.toContain('activity-other');
+    expect(clearAnswer({ ...NO_ANSWERS, ...typed }, 'activity')).toMatchObject({ activity: '', label: '' });
+    expect(activityName({ activity: 'other', label: '' })).toBe('Other activity');
+    expect(activityName({ activity: 'errands', label: 'ignored' })).toBe('Errands');
   });
 });

@@ -21,6 +21,10 @@ export type ThresholdPolicy = (activity: Activity) => Thresholds | null;
  *   30 km/h is the start of Beaufort 5 (fresh breeze); city-centre wind already understates
  *   exposed terrain.
  * - Walking 40 % / 35 km/h: short, flexible and close to shelter; buildings cut the wind.
+ * - Errands 30 % / 30 km/h (WEA-21): short trips, but carrying bags and goods that should
+ *   stay dry, so stricter than walking.
+ * - Other activity 30 % / 30 km/h (WEA-21): an activity the visitor names; the same
+ *   middle-ground limits as hiking, since its exposure is unknown.
  *
  * Change these values only through a reviewed product decision that also updates the spec.
  */
@@ -28,6 +32,8 @@ export const APPROVED_THRESHOLDS: Readonly<Record<Activity, Readonly<Thresholds>
   cycling: Object.freeze({ maxPrecipitationProbability: 20, maxWindKmh: 20 }),
   hiking: Object.freeze({ maxPrecipitationProbability: 30, maxWindKmh: 30 }),
   walking: Object.freeze({ maxPrecipitationProbability: 40, maxWindKmh: 35 }),
+  errands: Object.freeze({ maxPrecipitationProbability: 30, maxWindKmh: 30 }),
+  other: Object.freeze({ maxPrecipitationProbability: 30, maxWindKmh: 30 }),
 });
 
 /** The production policy: the approved defaults for the requested activity. */

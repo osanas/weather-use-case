@@ -4,12 +4,12 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { cityDisplayName, type City } from '@/lib/cities';
 import { messages as t } from '@/lib/i18n/messages';
 import {
-  activityLabel, answersToValues, chatView, clearAnswer, isComplete, NO_ANSWERS,
+  activityName, answersToValues, chatView, clearAnswer, isComplete, NO_ANSWERS,
   type Answers, type Choice, type TurnKey,
 } from '@/lib/planner/conversation';
 import { boardId, conversationIdOf, planFromChat, type BoardPlan } from '@/lib/planner/board';
+import { ACTIVITY_LABEL_MAX, parseActivityLabel } from '@/lib/planner/activity-label';
 import { usePlanner } from '@/lib/planner/usePlanner';
-import { ACTIVITIES } from '@/lib/planner/types';
 import type { DailySummary } from '@/lib/weather/types';
 import { CitySelector } from '../CitySelector';
 import { Companion } from '../Companion';
@@ -188,9 +188,10 @@ export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, r
                   </p>
                   {view.step === 'checking' ? <span className="typing" aria-hidden="true"><i /><i /><i /></span> : null}
                   {match ? (
-                    <PlanCard data={match} timeZone={city.timeZone} bounds={planner.bounds} day={days?.find(d => d.date === match.criteria.date)} />
+                    <PlanCard data={match} name={activityName(answers)} timeZone={city.timeZone} bounds={planner.bounds} day={days?.find(d => d.date === match.criteria.date)} />
                   ) : null}
                   <PlanResult
+                    activityName={activityName(answers)}
                     state={result ? planner.request : null}
                     city={city}
                     cityName={cityName}
@@ -242,8 +243,8 @@ export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, r
                 <StructuredInput
                   kind={view.input}
                   id={ids}
-                  initial={view.input === 'activity' ? answers.activity : answers.duration}
-                  onDone={value => answer(view.input === 'activity' ? { ...answers, activity: value } : { ...answers, duration: value })}
+                  initial={view.input === 'activity' ? answers.label : answers.duration}
+                  onDone={value => answer(view.input === 'activity' ? { ...answers, activity: 'other', label: value } : { ...answers, duration: value })}
                   onCancel={() => { setTyping(null); focusNext.current = true; }}
                 />
               ) : (
@@ -259,7 +260,10 @@ export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, r
   );
 }
 
-/** The structured alternative to the badges: a pixel select or a 1–4 hour stepper. */
+/**
+ * The typed alternative to the badges: the visitor's own activity name (validated, kept in the
+ * browser; the plan uses the `other` profile) or a 1–4 hour stepper.
+ */
 function StructuredInput({ kind, id, initial, onDone, onCancel }: {
   kind: 'activity' | 'duration';
   id: string;
@@ -268,18 +272,44 @@ function StructuredInput({ kind, id, initial, onDone, onCancel }: {
   onCancel: () => void;
 }) {
   const [value, setValue] = useState(initial || (kind === 'duration' ? '1' : ''));
+  const [error, setError] = useState<string | null>(null);
   const inputId = `${id}-${kind}`;
+  const errorId = `${inputId}-error`;
   const hours = Number(value);
   const step = (delta: number) => setValue(String(Math.min(4, Math.max(1, (Number.isFinite(hours) ? hours : 1) + delta))));
   return (
-    <form className="composer-input" noValidate onSubmit={event => { event.preventDefault(); if (value.trim()) onDone(value.trim()); }}>
+    <form
+      className="composer-input"
+      noValidate
+      onSubmit={event => {
+        event.preventDefault();
+        if (kind === 'duration') {
+          if (value.trim()) onDone(value.trim());
+          return;
+        }
+        const parsed = parseActivityLabel(value);
+        if (parsed.ok) onDone(parsed.label);
+        else setError(parsed.message);
+      }}
+    >
       {kind === 'activity' ? (
         <>
           <label htmlFor={inputId}>{t.activityInput.label}</label>
-          <select id={inputId} value={value} onChange={event => setValue(event.target.value)}>
-            <option value="">{t.activityInput.placeholder}</option>
-            {ACTIVITIES.map(a => <option key={a} value={a}>{activityLabel(a)}</option>)}
-          </select>
+          <input
+            id={inputId}
+            type="text"
+            className="activity-input"
+            value={value}
+            maxLength={ACTIVITY_LABEL_MAX + 10}
+            autoComplete="off"
+            spellCheck
+            placeholder={t.activityInput.placeholder}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${errorId} ${inputId}-hint` : `${inputId}-hint`}
+            onChange={event => { setValue(event.target.value); setError(null); }}
+          />
+          <p id={`${inputId}-hint`} className="composer-hint">{t.activityInput.hint}</p>
+          {error ? <p id={errorId} className="composer-error" role="alert">{error}</p> : null}
         </>
       ) : (
         <>

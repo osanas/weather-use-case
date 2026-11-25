@@ -10,7 +10,7 @@ import type { PlanCriteria, PlanResponse } from './types';
 // Synthetic state only.
 const request: PlanRequest = { cityId: 'laval-qc', activity: 'hiking', date: '2027-06-19', durationHours: 2 };
 const criteria: PlanCriteria = { ...request, maxPrecipitationProbability: 35, maxWindKmh: 28 };
-const full: Answers = { activity: 'hiking', city: true, when: 'weekend', date: '2027-06-19', duration: '2' };
+const full: Answers = { activity: 'hiking', label: '', city: true, when: 'weekend', date: '2027-06-19', duration: '2' };
 const done = (data: PlanResponse): ChatRequest => ({ status: 'done', request, data });
 
 /** Hourly points every hour from `from` (ISO UTC) for `count` hours. */

@@ -21,7 +21,10 @@ const MULTI_DAY: readonly When[] = ['weekend', 'next-week', 'flexible'];
 export const isMultiDay = (when: When | null) => when !== null && MULTI_DAY.includes(when);
 
 export type Answers = {
+  /** A planning profile from `ACTIVITIES`; `other` when the visitor typed their own. */
   activity: string;
+  /** The typed activity name, shown in the browser only and never sent. */
+  label: string;
   /** The visitor confirmed the city the plan is for. */
   city: boolean;
   when: When | null;
@@ -29,7 +32,7 @@ export type Answers = {
   duration: string;
 };
 
-export const NO_ANSWERS: Answers = { activity: '', city: false, when: null, date: '', duration: '' };
+export const NO_ANSWERS: Answers = { activity: '', label: '', city: false, when: null, date: '', duration: '' };
 
 export type ChatRequest =
   | { status: 'loading'; request: PlanRequest }
@@ -86,6 +89,13 @@ export type ChatState = {
 
 export const activityLabel = (activity: string) => t.activity[activity] ?? activity;
 
+/** The activity as the visitor knows it: their typed name for `other`, else the profile's. */
+export const activityName = (answers: Pick<Answers, 'activity' | 'label'>) =>
+  answers.activity === 'other' && answers.label ? answers.label : activityLabel(answers.activity);
+
+/** Profiles offered as badges; `other` is reached by typing a name. */
+export const ACTIVITY_CHOICES = ACTIVITIES.filter(a => a !== 'other');
+
 export function relativeDay(date: string, bounds: DateBounds | null): string {
   if (bounds && date === bounds.min) return 'Today';
   if (bounds && date === addCalendarDays(bounds.min, 1)) return 'Tomorrow';
@@ -124,7 +134,7 @@ export const isComplete = (a: Answers) => a.activity !== '' && a.city && a.date 
 /** Answers left after the visitor edits one of them. */
 export function clearAnswer(answers: Answers, key: TurnKey): Answers {
   switch (key) {
-    case 'activity': return { ...answers, activity: '' };
+    case 'activity': return { ...answers, activity: '', label: '' };
     case 'city': return { ...answers, city: false };
     case 'when': return { ...answers, when: null, date: '' };
     case 'day': return { ...answers, date: '' };
@@ -167,9 +177,9 @@ function turnsFor(state: ChatState): Turn[] {
     turns.push({ key: 'day', question: dayQuestion(answers.when, bounds), answer: relativeDay(answers.date, bounds) });
   }
   if (!answers.activity) return turns;
-  turns.push({ key: 'activity', question: t.ask.activity, answer: activityLabel(answers.activity) });
+  turns.push({ key: 'activity', question: t.ask.activity, answer: activityName(answers) });
   if (!answers.city) return turns;
-  turns.push({ key: 'city', question: t.ask.city(activityLabel(answers.activity)), answer: cityName });
+  turns.push({ key: 'city', question: t.ask.city(activityName(answers)), answer: cityName });
   if (!answers.duration.trim()) return turns;
   const hours = Number(answers.duration);
   turns.push({
@@ -202,7 +212,7 @@ function whenChoices(bounds: DateBounds | null): Choice[] {
 }
 
 const NEXT_CHOICES: Choice[] = [
-  { id: 'next-another', label: t.next.another, answer: { activity: '', when: null, date: '', duration: '' } },
+  { id: 'next-another', label: t.next.another, answer: { activity: '', label: '', when: null, date: '', duration: '' } },
   { id: 'next-day', label: t.next.otherDay, answer: { when: null, date: '' } },
   { id: 'next-duration', label: t.next.duration, answer: { duration: '' } },
 ];
@@ -259,13 +269,13 @@ export function chatView(state: ChatState): ChatView {
     return {
       turns,
       ...ask('activity', t.ask.activity,
-        ACTIVITIES.map(a => ({ id: `activity-${a}`, label: activityLabel(a), answer: { activity: a } })), 'activity'),
+        ACTIVITY_CHOICES.map(a => ({ id: `activity-${a}`, label: activityLabel(a), answer: { activity: a, label: '' } })), 'activity'),
     };
   }
   if (!answers.city) {
     return {
       turns,
-      ...ask('city', t.ask.city(activityLabel(answers.activity)), [
+      ...ask('city', t.ask.city(activityName(answers)), [
         ...state.cityChoices.map(c => ({ id: `city-${c.id}`, label: c.label, cityId: c.id, answer: { city: true } })),
         { id: 'city-other', label: t.city.other, opens: 'city' as const },
       ]),

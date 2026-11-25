@@ -57,7 +57,8 @@ export default function PrivacyPage() {
           <li>
             <strong>{aiProvider} (only when AI assistance is enabled)</strong> receives the city name, activity, date,
             duration, the app&apos;s fixed weather limits and the public hourly forecast for that day. It never
-            receives your IP address, browser headers or any identifier. {aiProvider} data retention for this
+            receives your IP address, browser headers or any identifier. An activity name you type stays in your
+            browser: only the &ldquo;other activity&rdquo; profile is sent. {aiProvider} data retention for this
             deployment: {aiRetention}.
           </li>
         </ul>
