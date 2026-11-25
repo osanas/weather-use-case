@@ -1,11 +1,9 @@
 'use client';
 
 import { formatLocalTime } from '@/lib/format';
-import { isExpired, localDateString, nextDays, upcomingHours } from '@/lib/forecast';
+import { isExpired } from '@/lib/forecast';
 import type { ForecastState } from '@/lib/weather/useForecast';
 import { CurrentWeather } from './CurrentWeather';
-import { DailyForecast } from './DailyForecast';
-import { HourlyForecast } from './HourlyForecast';
 
 type Props = { state: ForecastState; now: number; cityName: string; onReload: () => void };
 
@@ -32,16 +30,4 @@ export function CurrentPanel({ state, now, cityName, onReload }: Props) {
     );
   }
   return <CurrentWeather data={data} cityName={cityName} />;
-}
-
-/** Hourly and five-day forecasts in the city's time zone, once the forecast has loaded. */
-export function ForecastPanels({ state, now }: Pick<Props, 'state' | 'now'>) {
-  if (state.status !== 'ready') return null;
-  const { data } = state;
-  return (
-    <div className="forecast">
-      <HourlyForecast hours={upcomingHours(data.hourly, now)} timeZone={data.timezone} />
-      <DailyForecast days={nextDays(data.daily, data.timezone, now)} today={localDateString(now, data.timezone)} />
-    </div>
-  );
 }

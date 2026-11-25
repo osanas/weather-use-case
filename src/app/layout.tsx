@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import './globals.css';
 import './world-tokens.css';
 import './world.css';
+import './forecast.css';
 
 // Self-hosted at build time by next/font: visitors never request Google Fonts.
 const body = Inter({ subsets: ['latin'], variable: '--font-body', display: 'swap' });

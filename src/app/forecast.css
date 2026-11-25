@@ -1,0 +1,219 @@
+/*
+ * Weather widget (WEA-19): day summary, pixel curve with tabs and day cards. The curve is
+ * hidden from assistive technology; tables in `.sr-only` (chat.css) carry the same data.
+ * `.fc` is positioned so those tables never cause overflow. Chart and icon colours keep at
+ * least 3:1 against the glass cards in both colour schemes. No animation is added here.
+ */
+
+.fc {
+  --fc-temp: #c2410c;
+  --fc-precip: #2563eb;
+  --fc-wind: #0f766e;
+  --fc-plan: #1a7f37;
+  --fc-focus: var(--scene-accent, var(--accent));
+  --icon-line: #2f3a52;
+  --icon-cloud: #ffffff;
+  --icon-cloud-shade: #c5d0de;
+  --icon-cloud-back: #dde4ee;
+  --icon-cloud-back-shade: #aab6c7;
+  --icon-storm: #7a839c;
+  --icon-storm-shade: #565e78;
+  --icon-sun: #ffc83d;
+  --icon-sun-hi: #fff2b3;
+  --icon-sun-rim: #d9480f;
+  --icon-ray: #d9480f;
+  --icon-drop: #1d64d8;
+  --icon-ice: #0b7f96;
+  --icon-flake: #3b6fb6;
+  --icon-hail: #5b6b8a;
+  --icon-bolt: #a86f00;
+  --icon-fog: #6b7686;
+  --icon-unknown: var(--muted);
+  position: relative;
+  min-width: 0;
+}
+@media (prefers-color-scheme: dark) {
+  .fc {
+    --fc-temp: #ff9a5c;
+    --fc-precip: #6cb0ff;
+    --fc-wind: #5eead4;
+    --fc-plan: #3fb950;
+    --icon-line: #0d1220;
+    --icon-cloud: #e8eef6;
+    --icon-cloud-shade: #aebcd0;
+    --icon-cloud-back: #a9b6ca;
+    --icon-cloud-back-shade: #7d8ba3;
+    --icon-storm: #8f98b3;
+    --icon-storm-shade: #6c7590;
+    --icon-sun: #ffd45c;
+    --icon-sun-hi: #fff3c0;
+    --icon-sun-rim: #ff9f1c;
+    --icon-ray: #ffb347;
+    --icon-drop: #7cbcff;
+    --icon-ice: #6fe0f0;
+    --icon-flake: #f0f6ff;
+    --icon-hail: #d6e2f5;
+    --icon-bolt: #ffd43b;
+    --icon-fog: #aab4c3;
+  }
+}
+
+.px-icon-line { fill: var(--icon-line); }
+.px-icon-cloud { fill: var(--icon-cloud); }
+.px-icon-cloud-shade { fill: var(--icon-cloud-shade); }
+.px-icon-cloud-back { fill: var(--icon-cloud-back); }
+.px-icon-cloud-back-shade { fill: var(--icon-cloud-back-shade); }
+.px-icon-storm { fill: var(--icon-storm); }
+.px-icon-storm-shade { fill: var(--icon-storm-shade); }
+.px-icon-sun { fill: var(--icon-sun); }
+.px-icon-sun-hi { fill: var(--icon-sun-hi); }
+.px-icon-sun-rim { fill: var(--icon-sun-rim); }
+.px-icon-ray { fill: var(--icon-ray); }
+.px-icon-drop { fill: var(--icon-drop); }
+.px-icon-ice { fill: var(--icon-ice); }
+.px-icon-flake { fill: var(--icon-flake); }
+.px-icon-hail { fill: var(--icon-hail); }
+.px-icon-bolt { fill: var(--icon-bolt); }
+.px-icon-fog { fill: var(--icon-fog); }
+.px-icon-unknown { fill: var(--icon-unknown); }
+
+/* ---------- Widget ---------- */
+.ww { display: grid; gap: 0.875rem; }
+.ww h2 { margin: 0; }
+.ww p { margin: 0; }
+.ww-empty { color: var(--muted); }
+.ww-missing { color: var(--muted); font-size: 0.875rem; font-weight: 500; }
+
+/* Selected day: icon, high and low, precipitation and wind; the day on the right. */
+.ww-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.25rem; }
+.ww-head-icon { flex: none; display: block; width: 4rem; height: 4rem; }
+.ww-head-temps { display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
+.ww-high { font-size: 2.5rem; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+.ww-low { color: var(--muted); font-size: 0.875rem; }
+.ww-high.ww-missing { font-size: 1.25rem; }
+.ww-stats { display: grid; gap: 0.125rem; grid-template-columns: none; font-size: 0.875rem; }
+.ww-stats div { display: flex; gap: 0.375rem; }
+.ww-stats dd { font-variant-numeric: tabular-nums; }
+.ww-when { margin-left: auto; text-align: right; font-size: 0.875rem; }
+.ww-weekday { font-size: 1.125rem; font-weight: 700; }
+.ww-conditions { color: var(--muted); }
+
+/* Tabs: underlined, flat, not the chunky pixel buttons. */
+.ww-tabs { display: flex; gap: 0.25rem; border-bottom: 2px solid var(--border); overflow-x: auto; }
+.world-content .ww-tab,
+.ww-tab {
+  padding: 0.375rem 0.75rem;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  margin-bottom: -2px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  box-shadow: none;
+  transform: none;
+  white-space: nowrap;
+}
+.world-content .ww-tab:active { transform: none; box-shadow: none; }
+.world-content .ww-tab[aria-selected="true"],
+.ww-tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--fc-focus); }
+.ww-panel { border-radius: 0.25rem; }
+.ww-panel:focus-visible { outline: 3px solid var(--fc-focus); outline-offset: 2px; }
+.ww-caption { color: var(--muted); font-size: 0.8125rem; }
+
+/* Curve: stretched to the card width; labels are HTML placed over their hour column. */
+.ww-curve { --ww-color: var(--fc-temp); }
+.ww-curve[data-metric="precipitation"] { --ww-color: var(--fc-precip); }
+.ww-curve[data-metric="wind"] { --ww-color: var(--fc-wind); }
+.ww-plot { position: relative; height: 9rem; margin-top: 0.25rem; }
+.ww-svg { display: block; width: 100%; height: 100%; }
+.ww-area { fill: color-mix(in srgb, var(--ww-color) 28%, transparent); }
+.ww-line { fill: var(--ww-color); }
+.ww-baseline { fill: var(--border); }
+.ww-window { fill: color-mix(in srgb, var(--fc-plan) 20%, transparent); }
+.ww-window-active { fill: color-mix(in srgb, var(--fc-plan) 32%, transparent); }
+.ww-window-outline { fill: none; stroke: var(--fc-plan); stroke-width: 3; }
+.ww-limit { stroke: var(--fg); stroke-width: 2; stroke-dasharray: 6 4; }
+.ww-value {
+  position: absolute;
+  left: calc(var(--x) * 100%);
+  top: calc(var(--y) * 100%);
+  transform: translate(-50%, calc(-100% - 0.25rem));
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ww-limit-label {
+  position: absolute;
+  right: 0;
+  top: calc(var(--y) * 100%);
+  transform: translateY(calc(-100% - 2px));
+  padding: 0 0.25rem;
+  border-radius: 0.125rem;
+  background: var(--glass);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.ww-hours { position: relative; height: 1.25rem; margin-top: 0.25rem; color: var(--muted); font-size: 0.75rem; }
+.ww-hours span {
+  position: absolute;
+  left: calc(var(--x) * 100%);
+  transform: translateX(-50%);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ww-legend { display: flex; align-items: center; gap: 0.375rem; margin-top: 0.25rem; color: var(--muted); font-size: 0.75rem; }
+.ww-key { display: inline-block; width: 0.75rem; height: 0.75rem; }
+.ww-key-window { background: color-mix(in srgb, var(--fc-plan) 32%, transparent); outline: 2px solid var(--fc-plan); outline-offset: -2px; }
+
+/* Day cards: scroll inside the card on narrow screens; the buttons are the focus stops. */
+.ww-days {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0 -0.25rem;
+  padding: 0.25rem 0.25rem 0.5rem;
+  list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+}
+.ww-day-item { flex: 1 0 4.75rem; display: flex; flex-direction: column; gap: 0.25rem; scroll-snap-align: start; }
+.world-content .ww-day,
+.ww-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.5rem 0.25rem;
+  border: 2px solid var(--border);
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, var(--card) 55%, transparent);
+  color: var(--fg);
+  font-weight: 400;
+  box-shadow: 3px 3px 0 var(--pixel-shadow);
+}
+.world-content .ww-day[aria-pressed="true"],
+.ww-day[aria-pressed="true"] {
+  border-color: var(--fc-focus);
+  background: color-mix(in srgb, var(--fc-focus) 14%, var(--card));
+}
+.world-content .ww-day:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--pixel-shadow); }
+.ww-day-name { font-size: 0.875rem; font-weight: 700; }
+.ww-day-icon { display: block; width: 2rem; height: 2rem; }
+.ww-day-temps { display: flex; gap: 0.375rem; font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+.ww-day-temps span { color: var(--muted); }
+.ww-badge { font-size: 0.75rem; text-align: center; }
+
+/* Phones: tighter tabs, and labels every six hours so neighbours never touch. */
+@media (max-width: 36rem) {
+  .world-content .ww-tab, .ww-tab { padding: 0.375rem 0.5rem; }
+  .ww-value.ww-minor, .ww-hours .ww-minor { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .world-content .ww-day, .world-content .ww-tab { transition: none; }
+  .world-content .ww-day:active { transform: none; }
+}
