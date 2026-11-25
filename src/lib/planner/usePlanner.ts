@@ -25,6 +25,12 @@ const subscribeMinute = (onChange: () => void) => {
 const minuteSnapshot = () => Math.floor(Date.now() / MINUTE_MS) * MINUTE_MS;
 const serverSnapshot = () => null;
 
+/** The plannable dates for a city, or `null` until the browser clock is known. */
+export function useDateBounds(timeZone: string) {
+  const now = useSyncExternalStore(subscribeMinute, minuteSnapshot, serverSnapshot);
+  return now === null ? null : planDateBounds(now, timeZone);
+}
+
 /**
  * Planning state for the selected city: validation, the single in-flight request and its
  * result. The same client validation and `/api/plan` request as the former form; a newer
@@ -34,8 +40,7 @@ export function usePlanner(city: City) {
   const [errors, setErrors] = useState<PlanFormErrors>({});
   const [request, setRequest] = useState<PlannerRequest | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
-  const now = useSyncExternalStore(subscribeMinute, minuteSnapshot, serverSnapshot);
-  const bounds = now === null ? null : planDateBounds(now, city.timeZone);
+  const bounds = useDateBounds(city.timeZone);
 
   const send = useCallback(async (planRequest: PlanRequest) => {
     controllerRef.current?.abort();

@@ -7,6 +7,7 @@ import {
   activityLabel, answersToValues, chatView, clearAnswer, isComplete, NO_ANSWERS,
   type Answers, type Choice, type TurnKey,
 } from '@/lib/planner/conversation';
+import { boardId, conversationIdOf, planFromChat, type BoardPlan } from '@/lib/planner/board';
 import { usePlanner } from '@/lib/planner/usePlanner';
 import { ACTIVITIES } from '@/lib/planner/types';
 import type { DailySummary } from '@/lib/weather/types';
@@ -18,6 +19,10 @@ import { VISITOR } from '@/lib/world/avatar';
 import { DatePicker } from './DatePicker';
 import { PlanCard } from './PlanCard';
 
+let conversations = 0;
+/** A new conversation id: one per plan, kept while its answers are edited. */
+const newConversation = () => `plan-${++conversations}`;
+
 /** Cities offered as quick choices besides the selected one. */
 const FEATURED = ['montreal-qc', 'laval-qc', 'quebec-qc'];
 
@@ -27,6 +32,10 @@ type Props = {
   onSelectCity: (cityId: string) => void;
   /** Daily forecast for the selected city, or `null` while missing or expired. */
   days: readonly DailySummary[] | null;
+  /** Receives the conversation's plan for the board on every change; `null` before an activity. */
+  onPlanChange: (conversationId: string, plan: BoardPlan | null) => void;
+  /** A board plan to open again; the city is already selected. A new `seq` reopens it. */
+  reopen: { plan: BoardPlan; seq: number } | null;
 };
 
 /**
@@ -35,7 +44,7 @@ type Props = {
  * stepper), never free text. The last answer sends one request to `/api/plan` with the same
  * validation as before, and the planner's result is shown in Pico's bubble.
  */
-export function PlanningChat({ city, cities, onSelectCity, days }: Props) {
+export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, reopen }: Props) {
   const cityName = cityDisplayName(city);
   const planner = usePlanner(city);
   const [answers, setAnswers] = useState<Answers>(NO_ANSWERS);
@@ -44,6 +53,18 @@ export function PlanningChat({ city, cities, onSelectCity, days }: Props) {
   const currentRef = useRef<HTMLDivElement>(null);
   const focusNext = useRef(false);
   const ids = useId();
+  const [conversationId, setConversationId] = useState(newConversation);
+  const [reopened, setReopened] = useState(0);
+
+  // Opening a plan from the board restores its conversation and answers. Nothing is sent:
+  // Pico asks whether to check again, so each plan still costs one request.
+  if (reopen && reopen.seq !== reopened) {
+    setReopened(reopen.seq);
+    setConversationId(conversationIdOf(reopen.plan.id));
+    setAnswers({ ...reopen.plan.answers, city: true });
+    setTyping(null);
+    planner.setErrors({});
+  }
 
   const cityChoices = [city.id, ...FEATURED.filter(id => id !== city.id)].slice(0, 3).flatMap(id => {
     const c = cities.find(x => x.id === id);
@@ -53,6 +74,17 @@ export function PlanningChat({ city, cities, onSelectCity, days }: Props) {
   const view = chatView({
     answers, cityName, cityChoices, bounds: planner.bounds, days, errors: planner.errors, request: planner.request,
   });
+
+  // The board follows the conversation: draft, day, then the planner's outcome.
+  const boardPlan = planFromChat(boardId(conversationId, city.id), city.id, answers, planner.request);
+  const boardKey = JSON.stringify(boardPlan);
+  useEffect(() => {
+    onPlanChange(conversationId, boardKey === 'null' ? null : (JSON.parse(boardKey) as BoardPlan));
+  }, [conversationId, boardKey, onPlanChange]);
+
+  useEffect(() => {
+    if (reopened) composerRef.current?.querySelector<HTMLElement>('button')?.focus();
+  }, [reopened]);
 
   // After an answer, focus the next choice so the conversation can continue from the
   // keyboard; while Pico is checking, focus his bubble so the result is read next.
@@ -82,6 +114,7 @@ export function PlanningChat({ city, cities, onSelectCity, days }: Props) {
       focusNext.current = true;
       return;
     }
+    if (choice.id === 'next-another') setConversationId(newConversation());
     let target = city;
     if (choice.cityId && choice.cityId !== city.id) {
       target = cities.find(c => c.id === choice.cityId) ?? city;

@@ -65,6 +65,33 @@ export const messages = {
     window: 'Best window',
     timeline: (from: string, to: string) => `Planned from ${from} to ${to}`,
   },
+  board: {
+    heading: 'Planning board',
+    title: (city: string) => `Your week in ${city}`,
+    intro: 'Your plans appear here as you chat with Pico. Select one to open it in the chat again.',
+    days: 'Forecast days',
+    legend: { window: 'Planned window', rain: 'Rain chance', wind: 'Wind', limit: 'Activity limit' },
+    unscheduled: 'Not scheduled yet',
+    noForecast: 'Forecast unavailable. Plans are still shown.',
+    noPlans: 'No plan yet',
+    rain: (value: string) => `${value} rain`,
+    hours: (h: number) => `${h} h`,
+    status: {
+      draft: 'finding a time',
+      checking: 'checking…',
+      no_match: 'No window',
+      failed: 'Couldn’t check',
+    },
+    label: {
+      draft: 'draft, no time yet',
+      checking: 'checking the forecast',
+      match: (from: string, to: string) => `best time from ${from} to ${to}`,
+      no_match: 'no window met the limits',
+      failed: 'could not be checked',
+    },
+    plan: (parts: string) => `${parts}. Open in the chat`,
+    unscheduledDay: 'day not chosen',
+  },
 } as const;
 
 export type Messages = typeof messages;
