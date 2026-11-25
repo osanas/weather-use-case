@@ -8,13 +8,15 @@ type Props = {
   cities: readonly City[];
   selectedId: string;
   onSelect: (cityId: string) => void;
+  /** Visible label; the page's main selector is "City". */
+  label?: string;
 };
 
 /**
  * ARIA 1.2 combobox with a listbox popup. Search runs locally; keystrokes never
  * leave the browser. Only a confirmed selection calls `onSelect`.
  */
-export function CitySelector({ cities, selectedId, onSelect }: Props) {
+export function CitySelector({ cities, selectedId, onSelect, label = 'City' }: Props) {
   const baseId = useId();
   const inputId = `${baseId}-input`;
   const listId = `${baseId}-list`;
@@ -77,7 +79,7 @@ export function CitySelector({ cities, selectedId, onSelect }: Props) {
 
   return (
     <div className="city-selector">
-      <label htmlFor={inputId}>City</label>
+      <label htmlFor={inputId}>{label}</label>
       <input
         id={inputId}
         type="text"

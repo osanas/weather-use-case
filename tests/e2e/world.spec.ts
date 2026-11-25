@@ -29,6 +29,7 @@ async function setup(page: Page, montreal: MontrealReply) {
 const world = (page: Page) => page.locator('.world');
 const label = (page: Page) => page.locator('.live-label');
 const particles = (page: Page) => page.locator('canvas.particles');
+const pico = (page: Page) => page.locator('svg.pico-full');
 
 test('shows live rain in Montréal with animated drops and puddles', async ({ page }) => {
   await setup(page, { current: { weatherCode: 61, temperatureC: 4, isDay: true } });
@@ -38,6 +39,7 @@ test('shows live rain in Montréal with animated drops and puddles', async ({ pa
   await expect(particles(page)).toHaveAttribute('data-animating', 'true');
   await expect(page.locator('.layer-near .wet')).toHaveCSS('opacity', '1');
   await expect(page.locator('.layer-near .snowcaps')).toHaveCSS('opacity', '0');
+  await expect(pico(page)).toHaveAttribute('data-outfit', 'umbrella');
 });
 
 test('shows a snowy night with snow on the roofs', async ({ page }) => {
@@ -47,6 +49,19 @@ test('shows a snowy night with snow on the roofs', async ({ page }) => {
   await expect(particles(page)).toHaveAttribute('data-kind', 'snow');
   await expect(page.locator('.layer-near .snowcaps')).toHaveCSS('opacity', '1');
   await expect(label(page)).toContainText('Moderate snowfall, -6 °C');
+  await expect(pico(page)).toHaveAttribute('data-outfit', 'scarf lantern sleepy');
+});
+
+test('gives Pico sunglasses on a clear day', async ({ page }) => {
+  await setup(page, { current: { weatherCode: 0, temperatureC: 22, isDay: true } });
+  await expect(world(page)).toHaveAttribute('data-scene', 'clear-day');
+  await expect(pico(page)).toHaveAttribute('data-outfit', 'sunglasses');
+});
+
+test('gives Pico a shaking umbrella in a thunderstorm', async ({ page }) => {
+  await setup(page, { current: { weatherCode: 95, temperatureC: 18, isDay: true } });
+  await expect(world(page)).toHaveAttribute('data-scene', 'storm-day');
+  await expect(pico(page)).toHaveAttribute('data-outfit', 'umbrella shaking');
 });
 
 test('uses the local hour for night when the provider gives no day flag', async ({ page }) => {
@@ -61,12 +76,14 @@ test('never presents an expired Montréal forecast as live', async ({ page }) =>
   await expect(label(page)).toHaveText('Live Montréal weather is unavailable right now.');
   await expect(world(page)).toHaveAttribute('data-scene', 'calm');
   await expect(particles(page)).toHaveAttribute('data-kind', 'none');
+  await expect(pico(page)).toHaveAttribute('data-outfit', 'none');
 });
 
 test('keeps the selected city usable when Montréal weather fails', async ({ page }) => {
   await setup(page, { status: 503 });
   await expect(label(page)).toHaveText('Live Montréal weather is unavailable right now.');
   await expect(world(page)).toHaveAttribute('data-scene', 'calm');
+  await expect(pico(page)).toHaveAttribute('data-outfit', 'none');
   await expect(page.getByRole('heading', { name: 'Current conditions in Laval, Québec' })).toBeVisible();
   await expect(page.getByRole('table', { name: 'Hourly forecast' })).toBeVisible();
 });

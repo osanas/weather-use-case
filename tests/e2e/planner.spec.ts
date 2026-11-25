@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { planWithPico, waitForPlanner } from './fixtures';
 
 const forecast = {
   cityId: 'laval-qc',
@@ -27,14 +28,12 @@ for (const mode of ['agent', 'rule-based'] as const) {
       },
     } }));
     await page.goto('/');
+    await waitForPlanner(page);
     await page.getByRole('combobox', { name: 'City' }).fill('Laval');
     await page.getByRole('option', { name: /Laval/ }).click();
-    await page.getByLabel('Activity', { exact: true }).selectOption('hiking');
-    await page.getByLabel('Date', { exact: true }).fill('2027-06-14');
-    await page.getByLabel('Duration (hours)', { exact: true }).fill('2');
     const request = page.waitForRequest(req =>
       new URL(req.url()).pathname === '/api/plan' && req.method() === 'POST');
-    await page.getByRole('button', { name: 'Find best time' }).click();
+    await planWithPico(page, { activity: 'Hiking', city: 'Laval', when: 'Today', duration: '2 hours' });
     // Thresholds are resolved by the server policy, never sent by the browser.
     expect((await request).postDataJSON()).toEqual({
       cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', durationHours: 2,
