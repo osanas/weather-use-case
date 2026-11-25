@@ -68,11 +68,12 @@ export function usePlanner(city: City) {
 
   /**
    * Validates the values and sends them. `target` is the city the visitor just chose when it
-   * differs from the one this render knows. Returns whether a request was sent.
+   * differs from the one this render knows; `days` is how many local days to search from the
+   * date (3 for "I'm flexible"). Returns whether a request was sent.
    */
-  const submit = useCallback((values: PlanFormValues, target: City = city): boolean => {
+  const submit = useCallback((values: PlanFormValues, target: City = city, days = 1): boolean => {
     const effectiveBounds = target === city && bounds ? bounds : planDateBounds(Date.now(), target.timeZone);
-    const validation = validatePlanForm(values, target.id, effectiveBounds);
+    const validation = validatePlanForm(values, target.id, effectiveBounds, days);
     if (!validation.ok) {
       setErrors(validation.errors);
       return false;

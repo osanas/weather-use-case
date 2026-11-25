@@ -1,6 +1,6 @@
 import { describeWeatherCode, formatHour, formatTemperature } from '@/lib/format';
 import { messages as t } from '@/lib/i18n/messages';
-import { relativeDay } from '@/lib/planner/conversation';
+import { relativeDay, resultDate } from '@/lib/planner/conversation';
 import type { DateBounds } from '@/lib/planner/form';
 import type { PlanResponse } from '@/lib/planner/types';
 import type { DailySummary } from '@/lib/weather/types';
@@ -32,12 +32,11 @@ export function PlanCard({ data, name, timeZone, bounds, day }: {
   const units = useUnits();
   const from = localHour(data.start, timeZone);
   const to = localHour(data.end, timeZone, true);
-  const { criteria } = data;
   return (
     <div className="plan-card" aria-hidden="true">
       <div className="plan-card-head">
         <span className="plan-card-dot" />
-        <span className="plan-card-day">{relativeDay(criteria.date, bounds)}</span>
+        <span className="plan-card-day">{relativeDay(resultDate(data, timeZone), bounds)}</span>
         <span className="plan-card-activity">{name}</span>
         {day ? (
           <span className="plan-card-weather">

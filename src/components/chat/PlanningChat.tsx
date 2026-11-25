@@ -4,11 +4,12 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { cityDisplayName, type City } from '@/lib/cities';
 import { messages as t } from '@/lib/i18n/messages';
 import {
-  activityName, answersToValues, chatView, clearAnswer, isComplete, NO_ANSWERS,
+  activityName, answersToValues, chatView, clearAnswer, daysForWhen, isComplete, NO_ANSWERS, resultDate, withFlexibleToday,
   type Answers, type Choice, type TurnKey,
 } from '@/lib/planner/conversation';
 import { boardId, conversationIdOf, planFromChat, type BoardPlan } from '@/lib/planner/board';
 import { ACTIVITY_LABEL_MAX, parseActivityLabel } from '@/lib/planner/activity-label';
+import { planDateBounds } from '@/lib/planner/form';
 import { usePlanner } from '@/lib/planner/usePlanner';
 import type { DailySummary } from '@/lib/weather/types';
 import { CitySelector } from '../CitySelector';
@@ -45,6 +46,9 @@ type Props = {
  * stepper), never free text. The last answer sends one request to `/api/plan` with the same
  * validation as before, and the planner's result is shown in Pico's bubble.
  */
+/** Today in the city's zone, read when an answer is given (an event, not a render). */
+const todayIn = (city: City) => planDateBounds(Date.now(), city.timeZone).min;
+
 export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, reopen }: Props) {
   const cityName = cityDisplayName(city);
   const planner = usePlanner(city);
@@ -78,7 +82,7 @@ export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, r
   });
 
   // The board follows the conversation: draft, day, then the planner's outcome.
-  const boardPlan = planFromChat(boardId(conversationId, city.id), city.id, answers, planner.request);
+  const boardPlan = planFromChat(boardId(conversationId, city.id), city.id, answers, planner.request, city.timeZone);
   const boardKey = JSON.stringify(boardPlan);
   useEffect(() => {
     onPlanChange(conversationId, boardKey === 'null' ? null : (JSON.parse(boardKey) as BoardPlan));
@@ -100,14 +104,15 @@ export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, r
     target?.focus();
   });
 
-  function answer(next: Answers, target: City = city, submit = false) {
+  function answer(given: Answers, target: City = city, submit = false) {
+    const next = withFlexibleToday(given, todayIn(target));
     planner.setErrors({});
     setAnswers(next);
     setTyping(null);
     focusNext.current = true;
     // Send once the last missing answer arrives, or after fixing a rejected one.
     const fixing = Object.keys(planner.errors).length > 0;
-    if (submit || (isComplete(next) && (!isComplete(answers) || fixing))) planner.submit(answersToValues(next), target);
+    if (submit || (isComplete(next) && (!isComplete(answers) || fixing))) planner.submit(answersToValues(next), target, daysForWhen(next.when));
   }
 
   function choose(choice: Choice) {
@@ -190,7 +195,7 @@ export function PlanningChat({ city, cities, onSelectCity, days, onPlanChange, r
                   </p>
                   {view.step === 'checking' ? <span className="typing" aria-hidden="true"><i /><i /><i /></span> : null}
                   {match ? (
-                    <PlanCard data={match} name={activityName(answers)} timeZone={city.timeZone} bounds={planner.bounds} day={days?.find(d => d.date === match.criteria.date)} />
+                    <PlanCard data={match} name={activityName(answers)} timeZone={city.timeZone} bounds={planner.bounds} day={days?.find(d => d.date === resultDate(match, city.timeZone))} />
                   ) : null}
                   <PlanResult
                     activityName={activityName(answers)}

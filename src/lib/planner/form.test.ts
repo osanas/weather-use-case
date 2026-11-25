@@ -22,6 +22,21 @@ describe('validatePlanForm', () => {
     });
   });
 
+  it('sends days only for a multi-day search, and keeps it inside the horizon', () => {
+    expect(validatePlanForm(filled, 'laval-qc', bounds, 3)).toEqual({
+      ok: true,
+      request: { cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', durationHours: 2, days: 3 },
+    });
+    // 19 to 21 June ends past the horizon.
+    expect(validatePlanForm({ ...filled, date: '2027-06-19' }, 'laval-qc', bounds, 3))
+      .toEqual({ ok: false, errors: { date: 'Choose a date from 2027-06-14 to 2027-06-20.' } });
+  });
+
+  it('reports a rejected days value on the date, where the chat can show it', () => {
+    const result = validatePlanForm(filled, 'laval-qc', bounds, 4);
+    expect(result).toEqual({ ok: false, errors: { date: 'Choose a date from 2027-06-14 to 2027-06-20.' } });
+  });
+
   it('reports every empty field with a clear message', () => {
     const result = validatePlanForm(EMPTY_FORM, 'laval-qc', bounds);
     expect(result).toEqual({

@@ -4,7 +4,8 @@ import type { ReactNode } from 'react';
 import type { City } from '@/lib/cities';
 import { formatDay, formatHour, formatPercent, formatWind } from '@/lib/format';
 import type { PlanRequest } from '@/lib/planner/criteria';
-import { activityLabel } from '@/lib/planner/conversation';
+import { activityLabel, resultDate } from '@/lib/planner/conversation';
+import { addCalendarDays } from '@/lib/planner/planner';
 import type { PlanCriteria, PlanMode, PlanResponse } from '@/lib/planner/types';
 import { useUnits } from './Units';
 
@@ -20,6 +21,13 @@ const MODE_LABELS: Record<PlanMode, string> = {
 
 const hours = (n: number) => `${n} ${n === 1 ? 'hour' : 'hours'}`;
 
+/** The searched period: one day, or the first to the last day of a flexible search. */
+function searchedPeriod(criteria: PlanCriteria): string {
+  if (criteria.days <= 1) return `${formatDay(criteria.date)} (${criteria.date})`;
+  const last = addCalendarDays(criteria.date, criteria.days - 1);
+  return `${formatDay(criteria.date)} to ${formatDay(last)} (${criteria.date} to ${last})`;
+}
+
 /** Effective constraints from the server response. The thresholds are read-only policy values. */
 function Constraints({ criteria, activityName }: { criteria: PlanCriteria; activityName?: string }) {
   const profile = activityLabel(criteria.activity);
@@ -30,7 +38,7 @@ function Constraints({ criteria, activityName }: { criteria: PlanCriteria; activ
       <dl className="constraints">
         <dt>Activity</dt>
         <dd>{activityName && activityName !== profile ? `${activityName} (${profile} limits)` : profile}</dd>
-        <dt>Date</dt><dd>{formatDay(criteria.date)} ({criteria.date})</dd>
+        <dt>{criteria.days > 1 ? 'Days searched' : 'Date'}</dt><dd>{searchedPeriod(criteria)}</dd>
         <dt>Duration</dt><dd>{hours(criteria.durationHours)}</dd>
         <dt>Maximum precipitation</dt><dd>{formatPercent(criteria.maxPrecipitationProbability)}</dd>
         <dt>Maximum wind</dt><dd>{formatWind(criteria.maxWindKmh, units)}</dd>
@@ -91,7 +99,8 @@ function Content({ state, city, cityName, onRetry, compact, activityName }: {
   }
 
   const { criteria } = data;
-  const day = formatDay(criteria.date);
+  const day = formatDay(resultDate(data, city.timeZone));
+  const period = criteria.days > 1 ? `the next ${criteria.days} days` : day;
   const mode = <p className="mode">{MODE_LABELS[data.mode]}</p>;
 
   if (data.outcome === 'match') {
@@ -130,8 +139,8 @@ function Content({ state, city, cityName, onRetry, compact, activityName }: {
         <h3>No time meets these limits</h3>
         {mode}
         <p>
-          No {criteria.durationHours}-hour period on {day} in {cityName} stays within the precipitation and
-          wind limits for every hour. Try another date or a shorter duration.
+          No {criteria.durationHours}-hour period {criteria.days > 1 ? 'in' : 'on'} {period} in {cityName} stays within
+          the precipitation and wind limits for every hour. Try another date or a shorter duration.
         </p>
         <Constraints criteria={criteria} activityName={activityName} />
       </>
@@ -145,7 +154,7 @@ function Content({ state, city, cityName, onRetry, compact, activityName }: {
       <p>
         {data.reason === 'stale'
           ? 'The forecast is out of date, so a reliable time cannot be recommended.'
-          : `The forecast for ${day} in ${cityName} is missing readings, so a reliable time cannot be recommended.`}
+          : `The forecast for ${period} in ${cityName} is missing readings, so a reliable time cannot be recommended.`}
       </p>
       <button type="button" onClick={onRetry}>Try again</button>
       <Constraints criteria={criteria} activityName={activityName} />

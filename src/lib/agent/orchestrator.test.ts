@@ -91,7 +91,7 @@ describe('runPlanningAgent', () => {
   describe('model input', () => {
     it('is built from validated values only', () => {
       expect(JSON.parse(buildUserMessage(AGENT_CRITERIA, 'Laval, Québec'))).toEqual({
-        city: 'Laval, Québec', activity: 'hiking', date: '2027-06-14', durationHours: 2,
+        city: 'Laval, Québec', activity: 'hiking', date: '2027-06-14', days: 1, durationHours: 2,
         maxPrecipitationProbability: 35, maxWindKmh: 28,
       });
     });
@@ -100,7 +100,7 @@ describe('runPlanningAgent', () => {
       const { result, fake } = run(HAPPY_SCRIPT);
       await result;
       const forecastResult = JSON.parse((fake.requests[1]!.messages.at(-1) as { content: string }).content);
-      expect(Object.keys(forecastResult).sort()).toEqual(['date', 'hours']);
+      expect(Object.keys(forecastResult).sort()).toEqual(['date', 'days', 'hours']);
       for (const hour of forecastResult.hours) {
         expect(Object.keys(hour).sort()).toEqual(['precipitationProbability', 'start', 'windKmh']);
         expect(Date.parse(hour.start)).toBeGreaterThanOrEqual(AGENT_NOW);
@@ -125,6 +125,15 @@ describe('tool helpers', () => {
 
   it('returns no hours for a day the forecast does not cover', () => {
     expect(dayForecastPayload(forecast, { ...AGENT_CRITERIA, date: '2030-01-01' }, AGENT_NOW))
-      .toEqual({ date: '2030-01-01', hours: [] });
+      .toEqual({ date: '2030-01-01', days: 1, hours: [] });
+  });
+
+  it('returns the future hours of the three searched days only, for a flexible search', () => {
+    const payload = dayForecastPayload(forecast, { ...AGENT_CRITERIA, days: 3 }, AGENT_NOW);
+    // 16 future hours today, then two full days of 24.
+    expect(payload.hours).toHaveLength(16 + 24 + 24);
+    expect(payload.hours[0]!.start).toBe('2027-06-14T12:00:00.000Z');
+    expect(payload.hours.at(-1)!.start).toBe('2027-06-17T03:00:00.000Z');
+    expect(payload.days).toBe(3);
   });
 });

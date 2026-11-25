@@ -14,8 +14,10 @@ export type Activity = (typeof ACTIVITIES)[number];
 export type PlanCriteria = {
   cityId: string;
   activity: Activity;
-  /** Requested local calendar date in the city's zone, YYYY-MM-DD. */
+  /** Requested local calendar date in the city's zone, YYYY-MM-DD; the first day searched. */
   date: string;
+  /** Consecutive local days searched from `date`, 1–3. */
+  days: number;
   /** Whole hours, 1–4. */
   durationHours: number;
   /** Inclusive maximum precipitation probability, 0–100 %. Resolved by the server policy. */

@@ -14,8 +14,8 @@ const match = {
   maxWindKmh: 12, maxPrecipitationProbability: 10, criteria,
 };
 
-async function setup(page: Page, replies: { status?: number; json: unknown }[] = [{ json: match }]) {
-  await page.clock.setFixedTime(new Date(T));
+async function setup(page: Page, replies: { status?: number; json: unknown }[] = [{ json: match }], at = T) {
+  await page.clock.setFixedTime(new Date(at));
   await page.route('**/api/weather?*', route => route.fulfill({ json: makeForecast({
     cityId: 'laval-qc', timezone: 'America/Toronto', fetchedAt: '2027-06-14T11:59:00Z',
     firstHour: '2027-06-14T12:00:00Z', firstDate: '2027-06-14',
@@ -127,13 +127,43 @@ test('edits an answer and plans again', async ({ page }) => {
   expect(plan.bodies[1]).toEqual({ cityId: 'laval-qc', activity: 'hiking', date: '2027-06-19', durationHours: 3 });
 });
 
-test('narrows a flexible choice to one day with its forecast, and explains next week', async ({ page }) => {
-  await setup(page);
+test('finds a time over the next three days when the visitor is flexible', async ({ page }) => {
+  // The planner found its window on Wednesday, the day after tomorrow.
+  const flexible = {
+    ...match, start: '2027-06-16T15:00:00Z', end: '2027-06-16T17:00:00Z',
+    criteria: { ...criteria, date: '2027-06-14', days: 3 },
+  };
+  const plan = await setup(page, [{ json: flexible }]);
   await reply(page, 'I’m flexible');
-  await expect(badges(page)).toHaveCount(8); // seven days and the date picker
-  await expect(badges(page).first()).toContainText(/^Today.+°C.+% rain$/);
+  // No day to pick: Pico goes straight on to the activity.
+  await expect(pico(page)).toHaveText('What would you like to do?');
+  await reply(page, 'Hiking');
+  await reply(page, 'Laval');
+  await reply(page, '2 hours');
 
-  await log(page).getByRole('button', { name: 'Edit your answer: I’m flexible' }).click();
+  await expect(result(page)).toContainText('Best time: Wed, Jun 16, 11:00 EDT to 13:00 EDT');
+  await expect(result(page)).toContainText('Days searched');
+  await expect(page.locator('.plan-card-day')).toHaveText('Wed, Jun 16');
+  expect(plan.bodies).toEqual([{ cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', durationHours: 2, days: 3 }]);
+  await expect(log(page).locator('.msg-user .bubble')).toHaveText(['You: I’m flexible', 'You: Hiking', 'You: Laval, Québec', 'You: 2 hours']);
+});
+
+test('starts a flexible search on today in the city chosen afterwards, in its own zone', async ({ page }) => {
+  // 00:30 on Tuesday the 15th in Laval, still 21:30 on Monday the 14th in Vancouver.
+  const plan = await setup(page, [{ json: { ...match, criteria: { ...criteria, cityId: 'vancouver-bc', date: '2027-06-14', days: 3 } } }], '2027-06-15T04:30:00Z');
+  await reply(page, 'I’m flexible');
+  await reply(page, 'Hiking');
+  await reply(page, 'Other city');
+  await page.getByRole('combobox', { name: 'Other city' }).fill('Vancou');
+  await page.getByRole('option', { name: /^Vancouver, British Columbia/ }).first().click();
+  await reply(page, '1 hour');
+  await expect.poll(() => plan.bodies.length).toBe(1);
+  // Vancouver's today, not the Laval date the badge was clicked on.
+  expect(plan.bodies[0]).toEqual({ cityId: 'vancouver-bc', activity: 'hiking', date: '2027-06-14', durationHours: 1, days: 3 });
+});
+
+test('explains next week when it lies past the horizon', async ({ page }) => {
+  await setup(page);
   await reply(page, 'Next week');
   // Monday's horizon ends on Sunday, so Pico offers the last days he can see.
   await expect(pico(page)).toHaveText('I can see the forecast up to Sun, Jun 20. Which day suits you?');

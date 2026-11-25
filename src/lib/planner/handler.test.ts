@@ -43,7 +43,7 @@ const criteria = { cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', d
 const SYNTHETIC: Thresholds = { maxPrecipitationProbability: 35, maxWindKmh: 28 };
 const syntheticPolicy: ThresholdPolicy = () => SYNTHETIC;
 /** Criteria the planner used: the request plus the resolved synthetic thresholds. */
-const applied = { ...criteria, ...SYNTHETIC };
+const applied = { ...criteria, days: 1, ...SYNTHETIC };
 
 function setup(
   fetchForecast: (city: City) => Promise<ProviderForecast> = async () => providerForecast(),
@@ -109,9 +109,9 @@ describe('POST /api/plan', () => {
         const res = await postJson({ ...criteria, activity });
         const body = await res.json();
         expect(body.outcome).not.toBe('planning_unavailable');
-        expect(body.criteria).toEqual({ ...criteria, activity, ...APPROVED_THRESHOLDS[activity] });
+        expect(body.criteria).toEqual({ ...criteria, days: 1, activity, ...APPROVED_THRESHOLDS[activity] });
         expect(plan).toHaveBeenLastCalledWith(
-          expect.anything(), { ...criteria, activity, ...APPROVED_THRESHOLDS[activity] }, NOW);
+          expect.anything(), { ...criteria, days: 1, activity, ...APPROVED_THRESHOLDS[activity] }, NOW);
       }
       plan.mockRestore();
     });
@@ -168,9 +168,9 @@ describe('POST /api/plan', () => {
       const { postJson } = setup(undefined, policy);
       for (const activity of ['hiking', 'cycling', 'walking'] as const) {
         const res = await postJson({ ...criteria, activity });
-        expect((await res.json()).criteria).toEqual({ ...criteria, activity, ...byActivity[activity] });
+        expect((await res.json()).criteria).toEqual({ ...criteria, days: 1, activity, ...byActivity[activity] });
         expect(plan).toHaveBeenLastCalledWith(
-          expect.anything(), { ...criteria, activity, ...byActivity[activity] }, NOW);
+          expect.anything(), { ...criteria, days: 1, activity, ...byActivity[activity] }, NOW);
       }
       expect(policy.mock.calls.map(c => c[0])).toEqual(['hiking', 'cycling', 'walking']);
       plan.mockRestore();
@@ -217,11 +217,27 @@ describe('POST /api/plan', () => {
     }
   });
 
+  it('searches three days for a flexible request and echoes days', async () => {
+    const { postJson } = setup();
+    const res = await postJson({ ...criteria, days: 3 });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ outcome: 'match', criteria: { ...applied, days: 3 } });
+  });
+
+  it('rejects a flexible search that ends past the horizon with 400 on the date field', async () => {
+    const { postJson } = setup();
+    const res = await postJson({ ...criteria, date: '2027-06-19', days: 3 });
+    expect(res.status).toBe(400);
+    expect((await res.json()).fields).toEqual(['date']);
+  });
+
   it.each([
     ['an unknown city', { ...criteria, cityId: 'unknown' }, ['cityId']],
     ['a well-formed city ID outside the catalogue', { ...criteria, cityId: 'gn-999999999' }, ['cityId']],
     ['a curated-looking ID outside the catalogue', { ...criteria, cityId: 'atlantis-qc' }, ['cityId']],
     ['a five-hour duration', { ...criteria, durationHours: 5 }, ['durationHours']],
+    ['a four-day search', { ...criteria, days: 4 }, ['days']],
     ['an unknown field', { ...criteria, note: 'free text' }, ['unknown_field']],
     ['a client-supplied wind limit', { ...criteria, maxWindKmh: 200 }, ['unknown_field']],
     ['a client-supplied precipitation limit', { ...criteria, maxPrecipitationProbability: 100 }, ['unknown_field']],

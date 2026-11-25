@@ -13,6 +13,16 @@ describe('parsePlanRequest', () => {
     expect(parsePlanRequest(valid)).toEqual({ ok: true, request: valid });
   });
 
+  it('accepts days from 1 to 3 for a flexible search and keeps them', () => {
+    for (const days of [1, 2, 3]) expect(parsePlanRequest({ ...valid, days })).toEqual({ ok: true, request: { ...valid, days } });
+  });
+
+  it('rejects days outside 1–3 or not a whole number', () => {
+    for (const days of [0, 4, 1.5, '3', null, -1]) {
+      expect(parsePlanRequest({ ...valid, days })).toEqual({ ok: false, fields: ['days'] });
+    }
+  });
+
   it('rejects thresholds sent by the client, so the server policy cannot be overridden', () => {
     expect(parsePlanRequest({ ...valid, maxWindKmh: 100 })).toEqual({ ok: false, fields: ['unknown_field'] });
     expect(parsePlanRequest({ ...valid, maxPrecipitationProbability: 100 }))

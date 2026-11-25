@@ -33,7 +33,7 @@ export function agentForecast(fetchedAt = new Date(AGENT_NOW).toISOString()): Pr
 
 /** Effective criteria with synthetic thresholds (not the approved defaults). */
 export const AGENT_CRITERIA: PlanCriteria = {
-  cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', durationHours: 2,
+  cityId: 'laval-qc', activity: 'hiking', date: '2027-06-14', days: 1, durationHours: 2,
   maxPrecipitationProbability: 35, maxWindKmh: 28,
 };
 

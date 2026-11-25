@@ -81,7 +81,7 @@ test('switches every reading between metric and imperial and remembers the choic
   await expect(page.getByRole('table', { name: 'Hourly forecast' })).toContainText('68 °F');
 
   // Pico's day choices follow too; the request stays metric-free (no thresholds are sent).
-  await reply(page, 'I’m flexible');
+  await reply(page, 'This weekend');
   await expect(composer(page).locator('.day-choice').first()).toContainText('°F');
 
   await page.reload();

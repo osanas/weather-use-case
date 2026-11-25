@@ -133,6 +133,23 @@ test('shows each city its own plans', async ({ page }) => {
   await expect(dayItem(page, SAT).locator('.board-plan')).toContainText('11:00–13:00');
 });
 
+test('keeps a flexible plan in the tray until the planner finds its day', async ({ page }) => {
+  const flexible = {
+    ...match, start: '2027-06-16T15:00:00Z', end: '2027-06-16T17:00:00Z',
+    criteria: { ...criteria, date: '2027-06-14', days: 3 },
+  };
+  await setup(page, { replies: [flexible] });
+  await reply(page, 'I’m flexible');
+  await reply(page, 'Hiking');
+  await expect(tray(page).locator('.board-plan')).toHaveText(/Hiking\s*finding a time/);
+  await reply(page, 'Laval');
+  await reply(page, '2 hours');
+  const WED = /^Wed, Jun 16:/;
+  await expect(dayItem(page, WED).locator('.board-plan')).toHaveText(/Hiking\s*11:00–13:00/);
+  await expect(tray(page)).toHaveCount(0);
+  await expect(dayCard(page, WED)).toHaveAttribute('aria-pressed', 'true');
+});
+
 test('lists plans in the tray when the forecast is unavailable', async ({ page }) => {
   await setup(page, { weatherDown: true });
   await expect(widget(page)).toHaveCount(0);
