@@ -90,7 +90,7 @@ export function HourlyForecast({ hours, timeZone }: { hours: HourlyPoint[]; time
           </ol>
         </div>
       </div>
-      <div className="fc-sr-only">
+      <div className="sr-only">
         <table>
           <caption>Hourly forecast</caption>
           <thead>

@@ -74,7 +74,7 @@ export function DailyForecast({ days, today }: { days: DailySummary[]; today: st
           ))}
         </ol>
       </div>
-      <div className="fc-sr-only">
+      <div className="sr-only">
         <table>
           <caption>5-day forecast</caption>
           <thead>
